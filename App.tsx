@@ -5,10 +5,17 @@ import AnnotationPanel from './components/AnnotationPanel';
 import CornellNotesPanel from './components/CornellNotesPanel';
 import SettingsPanel from './components/SettingsPanel';
 import { DAO_DE_JING } from './constants';
-import { UserNotes, Theme, Book, Chapter, ReaderSettings, SavedTheme } from './types';
+import { UserNotes, Theme, Book, Chapter, ReaderSettings, SavedTheme, Translation } from './types';
 import { geminiService } from './services/gemini';
 
+const SUPPORTED_LANGUAGES = [
+  "English", "Chinese (Simplified)", "Chinese (Traditional)", 
+  "Japanese", "Korean", "Spanish", "French", "German", 
+  "Italian", "Russian", "Portuguese", "Vietnamese"
+];
+
 const App: React.FC = () => {
+  /* Use DAO_DE_JING directly now that it satisfies the Book interface types */
   const [currentBook, setCurrentBook] = useState<Book>(DAO_DE_JING);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [theme, setTheme] = useState<Theme>('light');
@@ -16,6 +23,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [showTranslations, setShowTranslations] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState('English');
   const [showNotes, setShowNotes] = useState(false);
   
   const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
@@ -77,26 +85,27 @@ const App: React.FC = () => {
     if (theme === id) setTheme('custom');
   };
 
-  // Logic to generate translation if missing and toggled on
+  // Logic to generate translation if missing for active targetLanguage and toggled on
   useEffect(() => {
-    if (showTranslations && currentChapter.translations.length === 0 && !isGeneratingTranslation) {
+    const existingTranslation = currentChapter.translations.find(t => t.language === targetLanguage);
+    
+    if (showTranslations && !existingTranslation && !isGeneratingTranslation) {
       const fetchTranslation = async () => {
         setIsGeneratingTranslation(true);
-        const translation = await geminiService.generateTranslation(currentChapter.original_text);
+        const translation = await geminiService.generateTranslation(currentChapter.original_text, targetLanguage);
         
         setCurrentBook(prev => {
           const newChapters = [...prev.chapters];
-          newChapters[currentChapterIndex] = {
-            ...newChapters[currentChapterIndex],
-            translations: [translation]
-          };
+          const chapter = { ...newChapters[currentChapterIndex] };
+          chapter.translations = [...chapter.translations, translation];
+          newChapters[currentChapterIndex] = chapter;
           return { ...prev, chapters: newChapters };
         });
         setIsGeneratingTranslation(false);
       };
       fetchTranslation();
     }
-  }, [showTranslations, currentChapterIndex, currentChapter.translations.length]);
+  }, [showTranslations, currentChapterIndex, targetLanguage, currentChapter.translations]);
 
   // Logic to generate annotations if missing and notes panel is open
   useEffect(() => {
@@ -191,9 +200,11 @@ const App: React.FC = () => {
     a.click();
   };
 
+  const isDarkMode = theme === 'dark' || theme === 'nord' || theme === 'mocha';
+
   return (
     <div className={`flex flex-col h-screen transition-colors duration-300 ${
-      theme === 'dark' || theme === 'nord' || theme === 'mocha' ? 'bg-[#121212] text-gray-200' : 
+      isDarkMode ? 'bg-[#121212] text-gray-200' : 
       theme === 'sepia' || theme === 'solarized' ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-slate-50 text-gray-900'
     }`}>
       {/* Hidden File Input */}
@@ -207,7 +218,7 @@ const App: React.FC = () => {
 
       {/* Header */}
       <header className={`flex items-center justify-between px-6 py-3 border-b panel-border z-20 ${
-        theme === 'dark' || theme === 'nord' || theme === 'mocha' ? 'bg-[#1a1a1a]' : 'bg-white'
+        isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'
       } shadow-sm`}>
         <div className="flex items-center gap-6">
           <button 
@@ -240,18 +251,27 @@ const App: React.FC = () => {
 
              <div className="w-px h-4 bg-current opacity-10 mx-1"></div>
 
-             <button 
-                onClick={() => setShowTranslations(!showTranslations)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
-                  showTranslations ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-black hover:bg-opacity-5'
-                }`}
-                title="Toggle Translations"
-             >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                </svg>
-                <span className="hidden lg:inline">Translation</span>
-             </button>
+             <div className="flex items-center bg-white dark:bg-black dark:bg-opacity-20 rounded shadow-sm border border-slate-200 dark:border-slate-800">
+               <button 
+                  onClick={() => setShowTranslations(!showTranslations)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-l text-[11px] font-bold uppercase tracking-wider transition-all ${
+                    showTranslations ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-white dark:hover:bg-opacity-10'
+                  }`}
+                  title="Toggle Translation"
+               >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                  <span className="hidden lg:inline">Translation</span>
+               </button>
+               <select 
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  className="bg-transparent text-[10px] font-bold uppercase px-2 py-1.5 outline-none border-l border-slate-200 dark:border-slate-800 cursor-pointer"
+               >
+                  {SUPPORTED_LANGUAGES.map(lang => <option key={lang} value={lang} className="text-black">{lang}</option>)}
+               </select>
+             </div>
 
              <button 
                 onClick={() => setShowNotes(!showNotes)}
@@ -302,6 +322,7 @@ const App: React.FC = () => {
                 theme={theme} 
                 settings={readerSettings} 
                 showTranslation={showTranslations}
+                targetLanguage={targetLanguage}
                 isGeneratingTranslation={isGeneratingTranslation}
              />
           </div>
@@ -360,7 +381,7 @@ const App: React.FC = () => {
             onClick={() => setIsSidebarOpen(false)}
           />
           <aside className={`fixed left-0 top-0 bottom-0 w-80 shadow-2xl z-40 flex flex-col transition-transform duration-300 transform translate-x-0 ${
-            theme === 'dark' || theme === 'nord' || theme === 'mocha' ? 'bg-[#1a1a1a]' : 'bg-white'
+            isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'
           }`}>
             <div className="p-6 border-b panel-border flex items-center justify-between">
               <h2 className="text-xl font-bold font-serif">Chapters</h2>

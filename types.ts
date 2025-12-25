@@ -2,6 +2,7 @@
 export interface Translation {
   translator: string;
   text: string;
+  language: string;
 }
 
 export interface BookAnnotation {

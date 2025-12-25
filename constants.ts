@@ -16,9 +16,11 @@ export const DAO_DE_JING: Book = {
       "chapter_title": "Chapter 1",
       "original_text": "道可道，非常道；名可名，非常名。无名天地之始，有名万物之母。故常无欲以观其妙；常有欲以观其徼。此两者同出而异名，同谓之玄，玄之又玄，众妙之门。",
       "translations": [
+        /* Added missing language property to conform to Translation interface */
         {
           "translator": "Arthur Waley",
-          "text": "The Way that can be told of is not an Unvarying Way; The names that can be named are not unvarying names. It was from the Nameless that Heaven and Earth sprang; The named is but the mother that rears the ten thousand creatures, each after its kind."
+          "text": "The Way that can be told of is not an Unvarying Way; The names that can be named are not unvarying names. It was from the Nameless that Heaven and Earth sprang; The named is but the mother that rears the ten thousand creatures, each after its kind.",
+          "language": "English"
         }
       ],
       "book_annotations": [
@@ -58,9 +60,11 @@ export const DAO_DE_JING: Book = {
       "chapter_title": "Chapter 2",
       "original_text": "天下皆知美之为美，斯恶已；皆知善之为善，斯不善已。故有无相生，难易相成，长短相较，高下相倾，音声相和，前后相随。是以圣人处无为之事，行不言之教，万物作焉而不辞，生而不有，为而不恃，功成而弗居。夫唯弗居，是以不去。",
       "translations": [
+        /* Added missing language property to conform to Translation interface */
         {
           "translator": "D.C. Lau",
-          "text": "When everyone in the world knows beauty as beauty, ugliness arises; When everyone knows good as good, not-good arises. Thus being and non-being produce each other; Difficult and easy complete each other; Long and short contrast each other; High and low distinguish each other; Sound and voice harmonize each other; Front and back follow each other."
+          "text": "When everyone in the world knows beauty as beauty, ugliness arises; When everyone knows good as good, not-good arises. Thus being and non-being produce each other; Difficult and easy complete each other; Long and short contrast each other; High and low distinguish each other; Sound and voice harmonize each other; Front and back follow each other.",
+          "language": "English"
         }
       ],
       "book_annotations": [
