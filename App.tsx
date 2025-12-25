@@ -1,57 +1,159 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReaderPanel from './components/ReaderPanel';
 import AnnotationPanel from './components/AnnotationPanel';
 import CornellNotesPanel from './components/CornellNotesPanel';
 import { DAO_DE_JING } from './constants';
-import { UserNotes, Theme } from './types';
+import { UserNotes, Theme, Book, Chapter } from './types';
+import { geminiService } from './services/gemini';
 
 const App: React.FC = () => {
+  const [currentBook, setCurrentBook] = useState<Book>(DAO_DE_JING);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [fontSize, setFontSize] = useState(18);
   const [theme, setTheme] = useState<Theme>('light');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Toggles for on-demand features
   const [showTranslations, setShowTranslations] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  
+  const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
+  const [isGeneratingAnnotations, setIsGeneratingAnnotations] = useState(false);
 
-  const [notesStorage, setNotesStorage] = useState<Record<number, UserNotes>>(() => {
-    const saved = localStorage.getItem('cornell_notes_db');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [notesStorage, setNotesStorage] = useState<Record<string, Record<number, UserNotes>>>(() => {
+    const saved = localStorage.getItem('cornell_notes_db_v2');
     return saved ? JSON.parse(saved) : {};
   });
 
-  const currentChapter = DAO_DE_JING.chapters[currentChapterIndex];
+  const currentChapter = currentBook.chapters[currentChapterIndex];
 
   // Auto-save logic
   useEffect(() => {
     const timeout = setTimeout(() => {
-      localStorage.setItem('cornell_notes_db', JSON.stringify(notesStorage));
+      localStorage.setItem('cornell_notes_db_v2', JSON.stringify(notesStorage));
     }, 1000);
     return () => clearTimeout(timeout);
   }, [notesStorage]);
 
+  // Logic to generate translation if missing and toggled on
+  useEffect(() => {
+    if (showTranslations && currentChapter.translations.length === 0 && !isGeneratingTranslation) {
+      const fetchTranslation = async () => {
+        setIsGeneratingTranslation(true);
+        const translation = await geminiService.generateTranslation(currentChapter.original_text);
+        
+        setCurrentBook(prev => {
+          const newChapters = [...prev.chapters];
+          newChapters[currentChapterIndex] = {
+            ...newChapters[currentChapterIndex],
+            translations: [translation]
+          };
+          return { ...prev, chapters: newChapters };
+        });
+        setIsGeneratingTranslation(false);
+      };
+      fetchTranslation();
+    }
+  }, [showTranslations, currentChapterIndex, currentChapter.translations.length]);
+
+  // Logic to generate annotations if missing and notes panel is open
+  useEffect(() => {
+    if (showNotes && currentChapter.book_annotations.length === 0 && !isGeneratingAnnotations) {
+      const fetchAnnotations = async () => {
+        setIsGeneratingAnnotations(true);
+        const annotations = await geminiService.generateAnnotations(currentChapter.original_text);
+        
+        setCurrentBook(prev => {
+          const newChapters = [...prev.chapters];
+          newChapters[currentChapterIndex] = {
+            ...newChapters[currentChapterIndex],
+            book_annotations: annotations
+          };
+          return { ...prev, chapters: newChapters };
+        });
+        setIsGeneratingAnnotations(false);
+      };
+      fetchAnnotations();
+    }
+  }, [showNotes, currentChapterIndex, currentChapter.book_annotations.length]);
+
   const handleSaveNotes = useCallback((notes: UserNotes) => {
     setNotesStorage(prev => ({
       ...prev,
-      [currentChapter.chapter_number]: notes
+      [currentBook.id]: {
+        ...(prev[currentBook.id] || {}),
+        [currentChapter.chapter_number]: notes
+      }
     }));
-  }, [currentChapter.chapter_number]);
+  }, [currentBook.id, currentChapter.chapter_number]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'sepia' : 'light');
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const title = file.name.replace('.txt', '');
+    
+    // Simple chapter splitting logic: search for "Chapter" or split by large blocks
+    let chapterTexts = text.split(/\n(?=Chapter|CHAPTER|Section|SECTION|Part|PART)/g);
+    
+    // If no clear markers, split into roughly 3000-char chunks
+    if (chapterTexts.length <= 1) {
+      chapterTexts = [];
+      const chunkSize = 3000;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        chapterTexts.push(text.slice(i, i + chunkSize));
+      }
+    }
+
+    const newChapters: Chapter[] = chapterTexts.map((content, idx) => ({
+      chapter_number: idx + 1,
+      chapter_title: content.trim().split('\n')[0].slice(0, 40) || `Section ${idx + 1}`,
+      original_text: content.trim(),
+      translations: [],
+      book_annotations: []
+    }));
+
+    const newBook: Book = {
+      id: `custom-${Date.now()}`,
+      title: title,
+      author: "Uploaded User Document",
+      language: "Auto-detected",
+      publisher: "Self-published",
+      publication_year: new Date().getFullYear().toString(),
+      version: "Original Text",
+      chapters: newChapters,
+      metadata: {
+        total_chapters: newChapters.length,
+        annotation_count: 0,
+        last_updated: new Date().toISOString().split('T')[0],
+        license: "Private"
+      }
+    };
+
+    setCurrentBook(newBook);
+    setCurrentChapterIndex(0);
+    setShowTranslations(false);
+    setShowNotes(false);
+  };
+
   const exportNotes = () => {
-    const content = Object.entries(notesStorage).map(([chapter, notes]: [string, UserNotes]) => {
+    const bookNotes = notesStorage[currentBook.id] || {};
+    const content = Object.entries(bookNotes).map(([chapter, notes]: [string, UserNotes]) => {
       return `### Chapter ${chapter}\n\n**Cues:**\n${notes.cues.join(', ')}\n\n**Notes:**\n${notes.notes}\n\n**Summary:**\n${notes.summary}\n\n---\n\n`;
     }).join('');
     
-    const blob = new Blob([`# Notes for ${DAO_DE_JING.title}\n\n${content}`], { type: 'text/markdown' });
+    const blob = new Blob([`# Notes for ${currentBook.title}\n\n${content}`], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${DAO_DE_JING.title}_notes.md`;
+    a.download = `${currentBook.title}_notes.md`;
     a.click();
   };
 
@@ -60,6 +162,15 @@ const App: React.FC = () => {
       theme === 'dark' ? 'bg-[#121212] text-gray-200' : 
       theme === 'sepia' ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-slate-50 text-gray-900'
     }`}>
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        accept=".txt" 
+        className="hidden" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload}
+      />
+
       {/* Header */}
       <header className={`flex items-center justify-between px-6 py-3 border-b panel-border z-20 ${
         theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'
@@ -74,14 +185,27 @@ const App: React.FC = () => {
             </svg>
           </button>
           <div className="hidden sm:block">
-            <h1 className="text-lg font-bold font-serif leading-tight">{DAO_DE_JING.title}</h1>
-            <p className="text-[10px] uppercase tracking-widest opacity-50">{DAO_DE_JING.author} • {DAO_DE_JING.publisher}</p>
+            <h1 className="text-lg font-bold font-serif leading-tight">{currentBook.title}</h1>
+            <p className="text-[10px] uppercase tracking-widest opacity-50">{currentBook.author} • {currentBook.publisher}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
-          {/* Feature Toggles */}
+          {/* Action Buttons */}
           <div className="flex items-center bg-black bg-opacity-5 rounded-lg p-1 mr-2 gap-1">
+             <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all hover:bg-black hover:bg-opacity-5"
+                title="Upload Text File"
+             >
+                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span className="hidden lg:inline">Upload</span>
+             </button>
+
+             <div className="w-px h-4 bg-current opacity-10 mx-1"></div>
+
              <button 
                 onClick={() => setShowTranslations(!showTranslations)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
@@ -92,7 +216,7 @@ const App: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                 </svg>
-                <span className="hidden lg:inline">Translations</span>
+                <span className="hidden lg:inline">Translation</span>
              </button>
 
              <button 
@@ -135,7 +259,7 @@ const App: React.FC = () => {
             className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md active:scale-95"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Export
           </button>
@@ -153,19 +277,21 @@ const App: React.FC = () => {
                 theme={theme} 
                 fontSize={fontSize} 
                 showTranslation={showTranslations}
+                isGeneratingTranslation={isGeneratingTranslation}
              />
           </div>
 
-          {/* Right: Publisher Annotations */}
+          {/* Right: Annotations */}
           <div className="w-1/4 h-full">
             <AnnotationPanel 
                annotations={currentChapter.book_annotations} 
                theme={theme} 
+               isGenerating={isGeneratingAnnotations}
             />
           </div>
         </div>
 
-        {/* Bottom Panel: Cornell Notes (Conditional rendering with animation) */}
+        {/* Bottom Panel: Cornell Notes */}
         <div className={`transition-all duration-500 ease-in-out border-t-2 panel-border overflow-hidden bg-white dark:bg-[#1a1a1a] ${
           showNotes ? 'h-1/3 min-h-[250px] opacity-100 translate-y-0' : 'h-0 opacity-0 translate-y-full'
         }`}>
@@ -174,7 +300,7 @@ const App: React.FC = () => {
                 chapterId={currentChapter.chapter_number}
                 chapterText={currentChapter.original_text}
                 theme={theme}
-                initialNotes={notesStorage[currentChapter.chapter_number]}
+                initialNotes={(notesStorage[currentBook.id] || {})[currentChapter.chapter_number]}
                 onSave={handleSaveNotes}
              />
            )}
@@ -200,7 +326,7 @@ const App: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto py-4">
-              {DAO_DE_JING.chapters.map((chap, idx) => (
+              {currentBook.chapters.map((chap, idx) => (
                 <button
                   key={idx}
                   onClick={() => {
@@ -228,10 +354,10 @@ const App: React.FC = () => {
               <div className="w-full bg-black bg-opacity-10 h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${((currentChapterIndex + 1) / DAO_DE_JING.chapters.length) * 100}%` }}
+                  style={{ width: `${((currentChapterIndex + 1) / currentBook.chapters.length) * 100}%` }}
                 />
               </div>
-              <p className="text-[10px] mt-2 opacity-60 text-right">{currentChapterIndex + 1} of {DAO_DE_JING.chapters.length} chapters</p>
+              <p className="text-[10px] mt-2 opacity-60 text-right">{currentChapterIndex + 1} of {currentBook.chapters.length} chapters</p>
             </div>
           </aside>
         </>
