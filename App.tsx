@@ -11,6 +11,11 @@ const App: React.FC = () => {
   const [fontSize, setFontSize] = useState(18);
   const [theme, setTheme] = useState<Theme>('light');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Toggles for on-demand features
+  const [showTranslations, setShowTranslations] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+
   const [notesStorage, setNotesStorage] = useState<Record<number, UserNotes>>(() => {
     const saved = localStorage.getItem('cornell_notes_db');
     return saved ? JSON.parse(saved) : {};
@@ -38,12 +43,10 @@ const App: React.FC = () => {
   };
 
   const exportNotes = () => {
-    // Explicitly typed the notes in the map to resolve 'unknown' type error
     const content = Object.entries(notesStorage).map(([chapter, notes]: [string, UserNotes]) => {
       return `### Chapter ${chapter}\n\n**Cues:**\n${notes.cues.join(', ')}\n\n**Notes:**\n${notes.notes}\n\n**Summary:**\n${notes.summary}\n\n---\n\n`;
     }).join('');
     
-    // Updated property access from DAO_DE_JING.book.title to DAO_DE_JING.title
     const blob = new Blob([`# Notes for ${DAO_DE_JING.title}\n\n${content}`], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -70,17 +73,45 @@ const App: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div>
-            {/* Updated property accesses from .book */}
+          <div className="hidden sm:block">
             <h1 className="text-lg font-bold font-serif leading-tight">{DAO_DE_JING.title}</h1>
             <p className="text-[10px] uppercase tracking-widest opacity-50">{DAO_DE_JING.author} • {DAO_DE_JING.publisher}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-black bg-opacity-5 rounded-lg p-1 mr-4">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Feature Toggles */}
+          <div className="flex items-center bg-black bg-opacity-5 rounded-lg p-1 mr-2 gap-1">
+             <button 
+                onClick={() => setShowTranslations(!showTranslations)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
+                  showTranslations ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-black hover:bg-opacity-5'
+                }`}
+                title="Toggle Translations"
+             >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                <span className="hidden lg:inline">Translations</span>
+             </button>
+
+             <button 
+                onClick={() => setShowNotes(!showNotes)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
+                  showNotes ? 'bg-indigo-600 text-white shadow-sm' : 'hover:bg-black hover:bg-opacity-5'
+                }`}
+                title="Toggle Note-taking"
+             >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span className="hidden lg:inline">Notes</span>
+             </button>
+          </div>
+
+          <div className="hidden md:flex bg-black bg-opacity-5 rounded-lg p-1 mr-2">
             <button onClick={() => setFontSize(Math.max(12, fontSize - 2))} className="px-3 py-1 text-sm font-bold hover:bg-white hover:bg-opacity-20 rounded transition-all">A-</button>
-            <span className="px-3 py-1 text-xs flex items-center opacity-60">{fontSize}px</span>
+            <span className="px-3 py-1 text-xs flex items-center opacity-60 font-mono">{fontSize}px</span>
             <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="px-3 py-1 text-sm font-bold hover:bg-white hover:bg-opacity-20 rounded transition-all">A+</button>
           </div>
 
@@ -101,7 +132,7 @@ const App: React.FC = () => {
 
           <button 
             onClick={exportNotes}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+            className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md active:scale-95"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -114,13 +145,14 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {/* Top Split */}
-        <div className="flex-1 flex min-h-0">
+        <div className={`flex flex-1 min-h-0 transition-all duration-500 ease-in-out ${showNotes ? 'h-2/3' : 'h-full'}`}>
           {/* Left: Original Text */}
-          <div className="w-3/4 h-full relative">
+          <div className="w-3/4 h-full relative border-r panel-border">
              <ReaderPanel 
                 chapter={currentChapter} 
                 theme={theme} 
                 fontSize={fontSize} 
+                showTranslation={showTranslations}
              />
           </div>
 
@@ -133,15 +165,19 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Panel: Cornell Notes */}
-        <div className="h-1/3 min-h-[250px] z-10">
-           <CornellNotesPanel 
-              chapterId={currentChapter.chapter_number}
-              chapterText={currentChapter.original_text}
-              theme={theme}
-              initialNotes={notesStorage[currentChapter.chapter_number]}
-              onSave={handleSaveNotes}
-           />
+        {/* Bottom Panel: Cornell Notes (Conditional rendering with animation) */}
+        <div className={`transition-all duration-500 ease-in-out border-t-2 panel-border overflow-hidden bg-white dark:bg-[#1a1a1a] ${
+          showNotes ? 'h-1/3 min-h-[250px] opacity-100 translate-y-0' : 'h-0 opacity-0 translate-y-full'
+        }`}>
+           {showNotes && (
+             <CornellNotesPanel 
+                chapterId={currentChapter.chapter_number}
+                chapterText={currentChapter.original_text}
+                theme={theme}
+                initialNotes={notesStorage[currentChapter.chapter_number]}
+                onSave={handleSaveNotes}
+             />
+           )}
         </div>
       </main>
 
