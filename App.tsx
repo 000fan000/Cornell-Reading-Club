@@ -5,7 +5,7 @@ import AnnotationPanel from './components/AnnotationPanel';
 import CornellNotesPanel from './components/CornellNotesPanel';
 import SettingsPanel from './components/SettingsPanel';
 import { DAO_DE_JING } from './constants';
-import { UserNotes, Theme, Book, Chapter, ReaderSettings } from './types';
+import { UserNotes, Theme, Book, Chapter, ReaderSettings, SavedTheme } from './types';
 import { geminiService } from './services/gemini';
 
 const App: React.FC = () => {
@@ -36,6 +36,11 @@ const App: React.FC = () => {
     };
   });
 
+  const [savedThemes, setSavedThemes] = useState<SavedTheme[]>(() => {
+    const saved = localStorage.getItem('user_saved_themes');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [notesStorage, setNotesStorage] = useState<Record<string, Record<number, UserNotes>>>(() => {
@@ -50,9 +55,27 @@ const App: React.FC = () => {
     const timeout = setTimeout(() => {
       localStorage.setItem('cornell_notes_db_v2', JSON.stringify(notesStorage));
       localStorage.setItem('reader_settings', JSON.stringify(readerSettings));
+      localStorage.setItem('user_saved_themes', JSON.stringify(savedThemes));
+      localStorage.setItem('app_theme_mode', theme);
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [notesStorage, readerSettings]);
+  }, [notesStorage, readerSettings, savedThemes, theme]);
+
+  // Handle saving current settings as a new theme
+  const handleSaveTheme = (name: string) => {
+    const newTheme: SavedTheme = {
+      id: `theme-${Date.now()}`,
+      name: name,
+      settings: { ...readerSettings }
+    };
+    setSavedThemes(prev => [...prev, newTheme]);
+    setTheme(newTheme.id);
+  };
+
+  const handleDeleteTheme = (id: string) => {
+    setSavedThemes(prev => prev.filter(t => t.id !== id));
+    if (theme === id) setTheme('custom');
+  };
 
   // Logic to generate translation if missing and toggled on
   useEffect(() => {
@@ -170,8 +193,8 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex flex-col h-screen transition-colors duration-300 ${
-      theme === 'dark' ? 'bg-[#121212] text-gray-200' : 
-      theme === 'sepia' ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-slate-50 text-gray-900'
+      theme === 'dark' || theme === 'nord' || theme === 'mocha' ? 'bg-[#121212] text-gray-200' : 
+      theme === 'sepia' || theme === 'solarized' ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-slate-50 text-gray-900'
     }`}>
       {/* Hidden File Input */}
       <input 
@@ -184,7 +207,7 @@ const App: React.FC = () => {
 
       {/* Header */}
       <header className={`flex items-center justify-between px-6 py-3 border-b panel-border z-20 ${
-        theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'
+        theme === 'dark' || theme === 'nord' || theme === 'mocha' ? 'bg-[#1a1a1a]' : 'bg-white'
       } shadow-sm`}>
         <div className="flex items-center gap-6">
           <button 
@@ -246,8 +269,8 @@ const App: React.FC = () => {
 
           <button 
             onClick={() => setIsSettingsOpen(true)}
-            className={`p-2 rounded-lg border panel-border transition-colors ${
-              isSettingsOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+            className={`p-2 rounded-lg border panel-border transition-all ${
+              isSettingsOpen ? 'bg-indigo-600 text-white border-indigo-600 shadow-inner scale-95' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'
             }`}
             title="Appearance Settings"
           >
@@ -319,8 +342,11 @@ const App: React.FC = () => {
           <SettingsPanel 
             settings={readerSettings}
             theme={theme}
+            savedThemes={savedThemes}
             onSettingsChange={setReaderSettings}
             onThemeChange={setTheme}
+            onSaveTheme={handleSaveTheme}
+            onDeleteTheme={handleDeleteTheme}
             onClose={() => setIsSettingsOpen(false)}
           />
         </>
@@ -334,7 +360,7 @@ const App: React.FC = () => {
             onClick={() => setIsSidebarOpen(false)}
           />
           <aside className={`fixed left-0 top-0 bottom-0 w-80 shadow-2xl z-40 flex flex-col transition-transform duration-300 transform translate-x-0 ${
-            theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'
+            theme === 'dark' || theme === 'nord' || theme === 'mocha' ? 'bg-[#1a1a1a]' : 'bg-white'
           }`}>
             <div className="p-6 border-b panel-border flex items-center justify-between">
               <h2 className="text-xl font-bold font-serif">Chapters</h2>

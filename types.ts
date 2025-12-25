@@ -42,7 +42,13 @@ export interface Book {
   };
 }
 
-export type Theme = 'light' | 'dark' | 'sepia' | 'custom';
+export type Theme = 'light' | 'dark' | 'sepia' | 'custom' | string;
+
+export interface SavedTheme {
+  id: string;
+  name: string;
+  settings: ReaderSettings;
+}
 
 export interface ReaderSettings {
   fontSize: number;
