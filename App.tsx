@@ -3,22 +3,38 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReaderPanel from './components/ReaderPanel';
 import AnnotationPanel from './components/AnnotationPanel';
 import CornellNotesPanel from './components/CornellNotesPanel';
+import SettingsPanel from './components/SettingsPanel';
 import { DAO_DE_JING } from './constants';
-import { UserNotes, Theme, Book, Chapter } from './types';
+import { UserNotes, Theme, Book, Chapter, ReaderSettings } from './types';
 import { geminiService } from './services/gemini';
 
 const App: React.FC = () => {
   const [currentBook, setCurrentBook] = useState<Book>(DAO_DE_JING);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
-  const [fontSize, setFontSize] = useState(18);
   const [theme, setTheme] = useState<Theme>('light');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [showTranslations, setShowTranslations] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   
   const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
   const [isGeneratingAnnotations, setIsGeneratingAnnotations] = useState(false);
+
+  const [readerSettings, setReaderSettings] = useState<ReaderSettings>(() => {
+    const saved = localStorage.getItem('reader_settings');
+    return saved ? JSON.parse(saved) : {
+      fontSize: 18,
+      fontFamily: '"Merriweather", serif',
+      lineHeight: 1.6,
+      letterSpacing: 0,
+      wordSpacing: 0,
+      paragraphSpacing: 1.5,
+      backgroundColor: '#ffffff',
+      textColor: '#1a1a1a',
+      maxWidth: 800,
+    };
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,9 +49,10 @@ const App: React.FC = () => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       localStorage.setItem('cornell_notes_db_v2', JSON.stringify(notesStorage));
+      localStorage.setItem('reader_settings', JSON.stringify(readerSettings));
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [notesStorage]);
+  }, [notesStorage, readerSettings]);
 
   // Logic to generate translation if missing and toggled on
   useEffect(() => {
@@ -89,10 +106,6 @@ const App: React.FC = () => {
     }));
   }, [currentBook.id, currentChapter.chapter_number]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'sepia' : 'light');
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -100,10 +113,8 @@ const App: React.FC = () => {
     const text = await file.text();
     const title = file.name.replace('.txt', '');
     
-    // Simple chapter splitting logic: search for "Chapter" or split by large blocks
     let chapterTexts = text.split(/\n(?=Chapter|CHAPTER|Section|SECTION|Part|PART)/g);
     
-    // If no clear markers, split into roughly 3000-char chunks
     if (chapterTexts.length <= 1) {
       chapterTexts = [];
       const chunkSize = 3000;
@@ -233,24 +244,15 @@ const App: React.FC = () => {
              </button>
           </div>
 
-          <div className="hidden md:flex bg-black bg-opacity-5 rounded-lg p-1 mr-2">
-            <button onClick={() => setFontSize(Math.max(12, fontSize - 2))} className="px-3 py-1 text-sm font-bold hover:bg-white hover:bg-opacity-20 rounded transition-all">A-</button>
-            <span className="px-3 py-1 text-xs flex items-center opacity-60 font-mono">{fontSize}px</span>
-            <button onClick={() => setFontSize(Math.min(32, fontSize + 2))} className="px-3 py-1 text-sm font-bold hover:bg-white hover:bg-opacity-20 rounded transition-all">A+</button>
-          </div>
-
           <button 
-            onClick={toggleTheme}
+            onClick={() => setIsSettingsOpen(true)}
             className={`p-2 rounded-lg border panel-border transition-colors ${
-              theme === 'dark' ? 'bg-indigo-900/20 border-indigo-500/50' : 
-              theme === 'sepia' ? 'bg-orange-900/10 border-orange-500/50' : 'bg-slate-100 border-slate-200'
+              isSettingsOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
             }`}
-            title="Toggle Theme"
+            title="Appearance Settings"
           >
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               {theme === 'light' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />}
-               {theme === 'dark' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />}
-               {theme === 'sepia' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21V3m0 18l-3-3m3 3l3-3M3 12h18M3 12l3-3m-3 3l3 3" />}
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
              </svg>
           </button>
 
@@ -259,7 +261,7 @@ const App: React.FC = () => {
             className="hidden sm:flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-md active:scale-95"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Export
           </button>
@@ -275,7 +277,7 @@ const App: React.FC = () => {
              <ReaderPanel 
                 chapter={currentChapter} 
                 theme={theme} 
-                fontSize={fontSize} 
+                settings={readerSettings} 
                 showTranslation={showTranslations}
                 isGeneratingTranslation={isGeneratingTranslation}
              />
@@ -306,6 +308,23 @@ const App: React.FC = () => {
            )}
         </div>
       </main>
+
+      {/* Settings Panel */}
+      {isSettingsOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-5 z-40 transition-opacity"
+            onClick={() => setIsSettingsOpen(false)}
+          />
+          <SettingsPanel 
+            settings={readerSettings}
+            theme={theme}
+            onSettingsChange={setReaderSettings}
+            onThemeChange={setTheme}
+            onClose={() => setIsSettingsOpen(false)}
+          />
+        </>
+      )}
 
       {/* Chapter Sidebar Drawer */}
       {isSidebarOpen && (

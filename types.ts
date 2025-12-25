@@ -42,4 +42,16 @@ export interface Book {
   };
 }
 
-export type Theme = 'light' | 'dark' | 'sepia';
+export type Theme = 'light' | 'dark' | 'sepia' | 'custom';
+
+export interface ReaderSettings {
+  fontSize: number;
+  fontFamily: string;
+  lineHeight: number;
+  letterSpacing: number;
+  wordSpacing: number;
+  paragraphSpacing: number;
+  backgroundColor: string;
+  textColor: string;
+  maxWidth: number;
+}

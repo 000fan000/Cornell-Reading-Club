@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { Chapter, Theme } from '../types';
+import { Chapter, Theme, ReaderSettings } from '../types';
 
 interface ReaderPanelProps {
   chapter: Chapter;
   theme: Theme;
-  fontSize: number;
+  settings: ReaderSettings;
   showTranslation: boolean;
   isGeneratingTranslation?: boolean;
 }
@@ -13,29 +13,57 @@ interface ReaderPanelProps {
 const ReaderPanel: React.FC<ReaderPanelProps> = ({ 
   chapter, 
   theme, 
-  fontSize, 
+  settings,
   showTranslation,
   isGeneratingTranslation 
 }) => {
   const isDark = theme === 'dark';
   const isSepia = theme === 'sepia';
+  const isCustom = theme === 'custom';
+
+  const containerStyle: React.CSSProperties = {
+    backgroundColor: isCustom ? settings.backgroundColor : undefined,
+    color: isCustom ? settings.textColor : undefined,
+  };
+
+  const textStyle: React.CSSProperties = {
+    fontSize: `${settings.fontSize}px`,
+    fontFamily: settings.fontFamily,
+    lineHeight: settings.lineHeight,
+    letterSpacing: `${settings.letterSpacing}px`,
+    wordSpacing: `${settings.wordSpacing}px`,
+  };
+
+  const paragraphStyle: React.CSSProperties = {
+    marginBottom: `${settings.paragraphSpacing}em`,
+  };
 
   return (
-    <div className={`h-full overflow-y-auto p-8 md:p-12 transition-colors duration-300 ${
-      isDark ? 'bg-[#1a1a1a] text-gray-200' : isSepia ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-white text-gray-900'
-    }`}>
-      <div className="max-w-3xl mx-auto space-y-12">
+    <div 
+      className={`h-full overflow-y-auto p-8 md:p-12 transition-colors duration-300 ${
+        isDark ? 'bg-[#1a1a1a] text-gray-200' : 
+        isSepia ? 'bg-[#f4ecd8] text-[#5b4636]' : 
+        isCustom ? '' : 'bg-white text-gray-900'
+      }`}
+      style={containerStyle}
+    >
+      <div 
+        className="mx-auto space-y-12"
+        style={{ maxWidth: `${settings.maxWidth}px` }}
+      >
         <header className="border-b pb-6 border-current opacity-20 text-center md:text-left">
           <h2 className="text-sm uppercase tracking-widest opacity-60 font-medium">Chapter {chapter.chapter_number}</h2>
-          <h1 className="text-3xl font-bold mt-2 font-serif">{chapter.chapter_title}</h1>
+          <h1 className="text-3xl font-bold mt-2 font-serif" style={{ fontFamily: settings.fontFamily }}>{chapter.chapter_title}</h1>
         </header>
 
         <section className="space-y-8">
           <div 
-            className="leading-relaxed tracking-wide text-center py-4 whitespace-pre-wrap"
-            style={{ fontSize: `${fontSize * 1.2}px` }}
+            className="leading-relaxed tracking-wide whitespace-pre-wrap"
+            style={textStyle}
           >
-            {chapter.original_text}
+            {chapter.original_text.split('\n\n').map((para, i) => (
+              <p key={i} style={paragraphStyle}>{para}</p>
+            ))}
           </div>
 
           {showTranslation && (
@@ -58,8 +86,8 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
                 chapter.translations.map((trans, idx) => (
                   <div key={idx} className="border-l-2 border-indigo-400 pl-6 italic">
                     <p 
-                      className="font-serif leading-relaxed opacity-90"
-                      style={{ fontSize: `${fontSize}px` }}
+                      className="leading-relaxed opacity-90"
+                      style={{ ...textStyle, fontSize: `${settings.fontSize * 0.9}px` }}
                     >
                       {trans.text}
                     </p>
