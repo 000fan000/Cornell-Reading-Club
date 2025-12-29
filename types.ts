@@ -33,7 +33,7 @@ export interface Book {
   author: {
     name_original: string;
     name_latinized: string;
-    // Fix: Adding name_chinese to allow Chinese names in the author object as provided in constants.ts
+    // Added name_chinese to the author interface to resolve type errors in constants.ts
     name_chinese?: string;
     lifespan: string;
     civilization: string;

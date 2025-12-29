@@ -693,7 +693,7 @@ export const LIBRARY_101: LibraryData = {
           "title_translations": { "en": "Democracy in America", "zh": "论美国的民主" },
           "author": { "name_original": "Alexis de Tocqueville", "name_latinized": "Tocqueville", "name_chinese": "亚历西斯·德·托克维尔", "lifespan": "1805-1859年", "civilization": "19th century France" },
           "metadata": { "period": "近代转折期", "estimated_date": "1835年（第一卷），1840年（第二卷）", "original_language": "法语", "genre": ["政治科学", "社会学", "游记"], "length_category": "长", "difficulty_level": 7, "babel_rating": 9.2 },
-          "civilization_context": { "region": "欧美", "cultural_sphere": "法/美", "historical_context": "杰克逊时代美国，七月王朝法国", "contemporary_works": ["密尔著作", "美国超验主义"], "predecessors": ["孟德斯鸠", "卢梭", "美国建国文献"], "successors": ["比较政治学", "民主理论", "社会学"] },
+          "civilization_context": { "region": "欧洲", "cultural_sphere": "法/美", "historical_context": "杰克逊时代美国，七月王朝法国", "contemporary_works": ["密尔著作", "美国超验主义"], "predecessors": ["孟德斯鸠", "卢梭", "美国建国文献"], "successors": ["比较政治学", "民主理论", "社会学"] },
           "thematic_tags": [{ "tag": "民主", "weight": 0.9 }, { "tag": "美国", "weight": 0.8 }, { "tag": "平等", "weight": 0.8 }, { "tag": "多数暴政", "weight": 0.7 }, { "tag": "公民社会", "weight": 0.8 }, { "tag": "比较政治", "weight": 0.8 }]
         },
         {
@@ -971,7 +971,6 @@ export const LIBRARY_101: LibraryData = {
     }
   }
 };
-
 
 // Default fallback for the reader
 export const DEFAULT_BOOK: ReaderBook = {
