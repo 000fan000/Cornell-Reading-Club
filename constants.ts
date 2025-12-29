@@ -188,15 +188,6 @@ export const LIBRARY_101: LibraryData = {
           "metadata": { "period": "古代轴心期", "estimated_date": "约公元前5世纪", "original_language": "古希腊语", "genre": ["历史", "民族志", "叙事"], "length_category": "长", "difficulty_level": 7, "babel_rating": 8.8 },
           "civilization_context": { "region": "希腊", "cultural_sphere": "希腊文化圈", "historical_context": "波斯战争后，希腊黄金时代", "contemporary_works": ["修昔底德历史"], "predecessors": ["史诗传统", "地理记载"], "successors": ["希腊罗马历史学"] },
           "thematic_tags": [{ "tag": "历史", "weight": 0.9 }, { "tag": "民族志", "weight": 0.8 }, { "tag": "战争", "weight": 0.7 }, { "tag": "文化", "weight": 0.8 }, { "tag": "旅行", "weight": 0.7 }, { "tag": "探究", "weight": 0.8 }]
-        },
-        {
-          "id": "020",
-          "title_original": "论语",
-          "title_translations": { "en": "Analects", "zh": "论语" },
-          "author": { "name_original": "孔子及弟子", "name_latinized": "Confucius and disciples", "lifespan": "公元前551-前479年", "civilization": "Ancient China" },
-          "metadata": { "period": "古代轴心期", "estimated_date": "公元前5-前4世纪", "original_language": "文言文", "genre": ["哲学", "伦理", "格言"], "length_category": "中等", "difficulty_level": 6, "babel_rating": 9.3 },
-          "civilization_context": { "region": "东亚", "cultural_sphere": "汉字文化圈", "historical_context": "春秋末期，礼崩乐坏", "contemporary_works": ["道德经", "墨子"], "predecessors": ["周礼", "诗经"], "successors": ["孟子", "荀子"] },
-          "thematic_tags": [{ "tag": "伦理", "weight": 0.9 }, { "tag": "教育", "weight": 0.8 }, { "tag": "治国", "weight": 0.8 }, { "tag": "礼", "weight": 0.7 }, { "tag": "孝道", "weight": 0.8 }, { "tag": "仁", "weight": 0.9 }]
         }
       ]
     },
@@ -693,7 +684,7 @@ export const LIBRARY_101: LibraryData = {
           "title_translations": { "en": "Democracy in America", "zh": "论美国的民主" },
           "author": { "name_original": "Alexis de Tocqueville", "name_latinized": "Tocqueville", "lifespan": "1805-1859年", "civilization": "19th century France" },
           "metadata": { "period": "近代转折期", "estimated_date": "1835年（第一卷），1840年（第二卷）", "original_language": "法语", "genre": ["政治科学", "社会学", "游记"], "length_category": "长", "difficulty_level": 7, "babel_rating": 9.2 },
-          "civilization_context": { "region": "欧美", "cultural_sphere": "法/美", "historical_context": "杰克逊时代美国，七月王朝法国", "contemporary_works": ["密尔著作", "美国超验主义"], "predecessors": ["孟德斯鸠", "卢梭", "美国建国文献"], "successors": ["比较政治学", "民主理论", "社会学"] },
+          "civilization_context": { "region": "欧洲", "cultural_sphere": "法/美", "historical_context": "杰克逊时代美国，七月王朝法国", "contemporary_works": ["密尔著作", "美国超验主义"], "predecessors": ["孟德斯鸠", "卢梭", "美国建国文献"], "successors": ["比较政治学", "民主理论", "社会学"] },
           "thematic_tags": [{ "tag": "民主", "weight": 0.9 }, { "tag": "美国", "weight": 0.8 }, { "tag": "平等", "weight": 0.8 }, { "tag": "多数暴政", "weight": 0.7 }, { "tag": "公民社会", "weight": 0.8 }, { "tag": "比较政治", "weight": 0.8 }]
         },
         {
