@@ -92,11 +92,9 @@ const App: React.FC = () => {
   const handleSelectBook = useCallback((book: Book) => {
     setCurrentBookData(book);
     
-    // Check if it's a user-uploaded book and retrieve from state
     if (book.is_user_uploaded && userReaderBooks[book.id]) {
       setActiveReaderBook(userReaderBooks[book.id]);
     } else {
-      // Create skeleton for static library books
       const readerBook: ReaderBook = {
         id: book.id,
         title: book.title_translations.en || book.title_original,
@@ -129,17 +127,13 @@ const App: React.FC = () => {
   }, [userReaderBooks]);
 
   const handleCommitBook = (book: ReaderBook) => {
-    // 1. Update the database state
     setUserReaderBooks(prev => ({ ...prev, [book.id]: book }));
-    
-    // 2. Set active state directly from the object to avoid race condition with state lookup
     setCurrentBookData(book.library_card!);
     setActiveReaderBook(book);
     setView('reader');
     setCurrentChapterIndex(0);
   };
 
-  // Automated Translation Effect
   useEffect(() => {
     if (showTranslations && currentChapter && !currentChapter.translations.find(t => t.language === targetLanguage) && !isGeneratingTranslation) {
       const fetchTranslation = async () => {
@@ -164,7 +158,6 @@ const App: React.FC = () => {
     }
   }, [showTranslations, targetLanguage, currentChapter, currentChapterIndex, isGeneratingTranslation]);
 
-  // Automated Annotation Effect
   useEffect(() => {
     if (currentChapter && (!currentChapter.book_annotations || currentChapter.book_annotations.length === 0) && !isGeneratingAnnotations) {
       const fetchAnnotations = async () => {
@@ -265,12 +258,34 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className={`flex flex-1 min-h-0 ${showNotes ? 'h-2/3' : 'h-full'}`}>
-          <div className="w-3/4 h-full relative border-r panel-border">
-             {currentChapter ? (
-               <ReaderPanel chapter={currentChapter} theme={theme} settings={readerSettings} showTranslation={showTranslations} targetLanguage={targetLanguage} isGeneratingTranslation={isGeneratingTranslation} />
-             ) : (
-               <div className="flex items-center justify-center h-full opacity-30 italic">No content available in this volume.</div>
-             )}
+          <div className="w-3/4 h-full relative border-r panel-border flex flex-col">
+             <div className="flex-1 min-h-0 overflow-hidden relative">
+               {currentChapter ? (
+                 <ReaderPanel chapter={currentChapter} theme={theme} settings={readerSettings} showTranslation={showTranslations} targetLanguage={targetLanguage} isGeneratingTranslation={isGeneratingTranslation} />
+               ) : (
+                 <div className="flex items-center justify-center h-full opacity-30 italic">No content available in this volume.</div>
+               )}
+             </div>
+             {/* Chapter Navigation Bar */}
+             <div className={`h-14 flex-shrink-0 border-t panel-border flex items-center px-6 overflow-x-auto no-scrollbar gap-4 ${isDarkMode ? 'bg-[#151515]' : 'bg-slate-100/50'}`}>
+                <span className="text-[9px] font-black uppercase tracking-widest opacity-30 whitespace-nowrap">Manuscript Sections</span>
+                <div className="flex items-center gap-2 pr-4">
+                  {activeReaderBook.chapters.map((ch, idx) => (
+                    <button
+                      key={ch.chapter_number}
+                      onClick={() => setCurrentChapterIndex(idx)}
+                      title={ch.chapter_title}
+                      className={`h-8 px-4 rounded-full text-[10px] font-bold transition-all whitespace-nowrap border ${
+                        currentChapterIndex === idx 
+                          ? (isDarkMode ? 'bg-amber-400 text-black border-transparent shadow-lg scale-105' : 'bg-indigo-600 text-white border-transparent shadow-md scale-105')
+                          : (isDarkMode ? 'bg-white/5 border-white/10 text-white/40 hover:text-white/80' : 'bg-white border-black/5 text-black/40 hover:text-black/80')
+                      }`}
+                    >
+                      {ch.chapter_number}. {ch.chapter_title}
+                    </button>
+                  ))}
+                </div>
+             </div>
           </div>
           <div className="w-1/4 h-full">
             <AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} />
@@ -293,6 +308,10 @@ const App: React.FC = () => {
           onClose={() => setIsSettingsOpen(false)}
         />
       )}
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };
