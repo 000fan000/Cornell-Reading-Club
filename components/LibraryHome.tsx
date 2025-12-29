@@ -19,6 +19,39 @@ const COVER_PALETTES = [
   { bg: 'bg-[#fcfaf2]', text: 'text-[#2c241e]', accent: 'border-[#d4af37]', hex: '#d4af37' }, // Ivory
 ];
 
+const ERA_ICONS: Record<string, React.ReactNode> = {
+  ancient_axial: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M4 19.5V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v15.5a2.5 2.5 0 0 1-2.5 2.5H6.5a2.5 2.5 0 0 1-2.5-2.5z" />
+      <path d="M8 7h8M8 11h8M8 15h5" />
+    </svg>
+  ),
+  classical_empire: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 21h18M3 7h18M6 21V7M10 21V7M14 21V7M18 21V7M3 7l9-5 9 5" />
+    </svg>
+  ),
+  medieval_transition: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M21 11c0-4.418-3.582-8-8-8-3.14 0-5.85 1.808-7.143 4.457L3 11v9a1 1 0 0 0 1 1h5l1-4h4l1 4h5a1 1 0 0 0 1-1v-9z" />
+      <path d="M9 11h6" />
+    </svg>
+  ),
+  modern_turn: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+      <path d="M12 2v2M12 20v2M20 12h2M2 12h2" />
+    </svg>
+  ),
+  contemporary_pluralism: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+};
+
 const parseYear = (dateStr: string): number => {
   if (!dateStr) return 0;
   const cleaned = dateStr.replace('约', '').replace('世纪', '00');
@@ -44,7 +77,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
   const isDarkMode = theme === 'dark' || theme === 'nord' || theme === 'mocha';
   const activePeriod = data.periods[activePeriodKey];
 
-  // Aggregate tags for the Filter Cloud
   const tagStats = useMemo(() => {
     const stats: Record<string, { weight: number; count: number }> = {};
     activePeriod.books.forEach(book => {
@@ -54,14 +86,11 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         stats[t.tag].count += 1;
       });
     });
-    
     const entries = Object.entries(stats).map(([tag, data]) => ({ 
       tag, 
       score: data.weight * data.count,
     }));
-    
     if (entries.length === 0) return [];
-    
     const maxScore = Math.max(...entries.map(e => e.score));
     return entries.map(e => ({
       ...e,
@@ -69,20 +98,15 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     })).sort((a, b) => b.score - a.score);
   }, [activePeriod]);
 
-  // Group books for Region/Genre modes, respecting the tag filter
   const groupedData = useMemo(() => {
     const groups: Record<string, { rows: Book[][]; count: number; books: Book[] }> = {};
-    
-    // First, filter by active tag if exists
     let filteredBooks = [...activePeriod.books];
     if (activeTag) {
       filteredBooks = filteredBooks.filter(book => 
         book.thematic_tags.some(t => t.tag === activeTag)
       );
     }
-    
     const sortedBooks = filteredBooks.sort((a, b) => parseYear(a.metadata.estimated_date) - parseYear(b.metadata.estimated_date));
-
     sortedBooks.forEach(book => {
       const category = organizationMode === 'region' 
         ? (book.civilization_context.region || 'Uncharted')
@@ -91,7 +115,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       groups[category].books.push(book);
       groups[category].count++;
     });
-
     const entries = Object.entries(groups).map(([name, g]) => {
       const rows: Book[][] = [];
       for (let i = 0; i < g.books.length; i += 4) {
@@ -102,11 +125,9 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     return entries.sort((a, b) => a[0].localeCompare(b[0]));
   }, [activePeriod, organizationMode, activeTag]);
 
-  // Observer for scroll tracking
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -119,14 +140,11 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       threshold: 0.1,
       rootMargin: '-10% 0% -10% 0%'
     });
-
     const sections = container.querySelectorAll('.category-section');
     sections.forEach((s) => observer.observe(s));
-    
     return () => observer.disconnect();
   }, [groupedData, activePeriodKey, organizationMode, activeTag]);
 
-  // Handle view switching or filtering
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' as any });
@@ -148,7 +166,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         </h4>
         <div className={`h-[1px] w-full bg-current opacity-[0.05]`}></div>
       </div>
-      
       <nav className="flex-1 flex flex-col gap-5 overflow-y-auto no-scrollbar">
         {groupedData.map(([category, groupData]) => {
           const isActive = activeCategoryName === category;
@@ -174,7 +191,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
           );
         })}
       </nav>
-
       <div className={`mt-auto pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
         <div className="flex items-center justify-between opacity-20">
            <span className="text-[8px] font-black uppercase tracking-widest">Showing</span>
@@ -188,7 +204,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     <div className={`h-screen transition-colors duration-700 overflow-hidden flex flex-col font-serif relative ${
       isDarkMode ? 'bg-[#121212] text-[#e5e5e5]' : 'bg-[#fcfbf9] text-[#2c241e]'
     }`}>
-      {/* Background Era Number Decor */}
       <div className={`absolute inset-0 pointer-events-none select-none overflow-hidden transition-opacity duration-1000 ${
         isDarkMode ? 'opacity-[0.03]' : 'opacity-[0.012]'
       }`}>
@@ -227,7 +242,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
             )}
           </button>
         </div>
-
         <div className="flex items-center justify-center gap-3 mb-1">
           <div className={`h-px w-6 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
           <span className={`text-[9px] uppercase tracking-[0.6em] font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>{data.library.concept}</span>
@@ -237,7 +251,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         <p className={`text-[11px] opacity-30 italic mt-1 max-w-lg mx-auto ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>"{activePeriod.description}"</p>
       </header>
 
-      {/* Tag Filter Cloud - "Conceptual Horizon" */}
       <div className={`z-20 px-10 py-4 border-b transition-colors duration-500 overflow-x-auto no-scrollbar flex items-center gap-6 ${
         isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-[#faf9f6] border-black/5'
       }`}>
@@ -277,14 +290,12 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       </div>
 
       <div className={`flex-1 flex w-full overflow-hidden relative ${organizationMode === 'genre' ? 'flex-row-reverse' : 'flex-row'}`}>
-        {/* Contextual Sidebar Navigation */}
         <aside className={`w-56 h-full py-10 px-8 z-20 transition-all duration-500 border-current border-opacity-[0.05] ${
           isDarkMode ? 'bg-[#1a1a1a]/80 backdrop-blur-md' : 'bg-white/20 backdrop-blur-md'
         } ${organizationMode === 'region' ? 'border-r' : 'border-l'}`}>
           {navContent}
         </aside>
 
-        {/* Main Content Area */}
         <main className="flex-1 w-full overflow-hidden relative">
           <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto no-scrollbar relative pt-[2vh] pb-[40vh]">
             {groupedData.length === 0 ? (
@@ -318,7 +329,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                         const palette = COVER_PALETTES[(groupIndex + rowIndex + bookIdx) % COVER_PALETTES.length];
                         const isNotLast = bookIdx < rowBooks.length - 1;
                         const isHovered = hoveredBookId === book.id;
-                        
                         return (
                           <div 
                             key={book.id} 
@@ -338,7 +348,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                                 </div>
                               )}
                             </div>
-
                             <button
                               onClick={() => onSelectBook(book)}
                               className="flex flex-col items-center transition-transform duration-500 hover:-translate-y-8"
@@ -360,7 +369,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                                 <div className="absolute -bottom-4 -right-4 text-[60px] font-black opacity-[0.05] italic pointer-events-none select-none">{book.id}</div>
                               </div>
                             </button>
-
                             <div className={`absolute top-0 left-[110%] z-[60] w-[340px] p-8 rounded-2xl shadow-[0_30px_90px_-20px_rgba(0,0,0,0.4)] border pointer-events-none transition-all duration-500 transform origin-left ${
                               isHovered ? 'opacity-100 translate-x-4 scale-100' : 'opacity-0 -translate-x-4 scale-95'
                             } ${isDarkMode ? 'bg-[#1a1a1a]/98 border-white/10 text-white backdrop-blur-xl' : 'bg-white/98 border-black/5 text-[#2c241e] backdrop-blur-xl'}`}>
@@ -400,11 +408,10 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         </main>
       </div>
 
-      {/* Global Period Navigation Tab-bar */}
-      <nav className={`h-20 transition-colors duration-500 relative z-40 flex items-center overflow-x-auto no-scrollbar border-t shadow-[0_-5px_15px_rgba(0,0,0,0.02)] ${
-        isDarkMode ? 'bg-black/80 border-white/5 backdrop-blur-xl' : 'bg-white/60 border-black/5 backdrop-blur-md'
+      <nav className={`h-28 transition-all duration-500 relative z-40 flex items-center overflow-x-auto no-scrollbar border-t shadow-[0_-8px_30px_rgba(0,0,0,0.06)] ${
+        isDarkMode ? 'bg-black/80 border-white/5 backdrop-blur-2xl' : 'bg-white/80 border-black/5 backdrop-blur-2xl'
       }`}>
-        <div className="flex h-full min-w-full px-[5vw]">
+        <div className="flex h-full min-w-full px-6 gap-2">
           {Object.entries(data.periods).map(([key, period]) => {
             const p = period as LibraryPeriod;
             const isActive = activePeriodKey === key;
@@ -413,23 +420,48 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                 key={key}
                 onClick={() => {
                   setActivePeriodKey(key);
-                  setActiveTag(null); // Clear tag filter on period change
+                  setActiveTag(null);
                 }}
-                className={`flex-shrink-0 w-52 h-full flex flex-col justify-center px-8 border-r transition-all relative group overflow-hidden ${
-                  isActive ? (isDarkMode ? 'bg-white/5' : 'bg-amber-50/40') : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-white/40')
-                } ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}
+                className={`flex-shrink-0 w-64 h-full flex items-center px-6 transition-all duration-500 relative group overflow-hidden ${
+                  isActive 
+                    ? (isDarkMode ? 'bg-white/5 shadow-inner' : 'bg-amber-50/40 shadow-inner') 
+                    : 'hover:bg-black/5'
+                }`}
               >
-                <div className="relative z-10">
-                  <span className={`text-[8px] uppercase tracking-[0.4em] font-black transition-all duration-500 ${
-                    isActive ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : 'opacity-20'
-                  }`}>{p.era}</span>
-                  <h4 className={`text-[13px] font-bold mb-0.5 transition-transform duration-500 ${
-                    isDarkMode ? 'text-white/90' : 'text-[#4a423b]'
-                  } ${isActive ? 'translate-x-1' : 'opacity-60'}`}>{p.period_name}</h4>
+                <div className={`flex items-center gap-4 relative z-10 transition-transform duration-500 ${isActive ? 'translate-x-1' : ''}`}>
+                  <div className={`p-3 rounded-2xl transition-all duration-500 ${
+                    isActive 
+                      ? (isDarkMode ? 'bg-amber-400 text-black scale-110 shadow-lg' : 'bg-amber-700 text-white scale-110 shadow-lg') 
+                      : (isDarkMode ? 'bg-white/5 text-white/20 group-hover:text-white/40' : 'bg-black/5 text-black/20 group-hover:text-black/40')
+                  }`}>
+                    {ERA_ICONS[key] || ERA_ICONS.ancient_axial}
+                  </div>
+                  <div className="flex flex-col items-start text-left">
+                    <span className={`text-[8px] uppercase tracking-[0.4em] font-black transition-all duration-500 ${
+                      isActive ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : 'opacity-20'
+                    }`}>{p.era}</span>
+                    <h4 className={`text-[15px] font-black font-serif leading-tight transition-all duration-500 ${
+                      isDarkMode ? 'text-white/90' : 'text-[#4a423b]'
+                    } ${isActive ? 'opacity-100' : 'opacity-40'}`}>{p.period_name}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[9px] font-bold opacity-30 transition-all ${isActive ? 'opacity-100' : ''}`}>{p.time_range}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className={`absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out ${
-                  isDarkMode ? 'bg-amber-400/60' : 'bg-amber-600/60'
-                } ${isActive ? 'w-full' : 'w-0'}`} />
+                
+                <div className="absolute top-4 right-4 flex flex-col items-end">
+                  <div className={`px-2 py-0.5 rounded-full text-[9px] font-black transition-all duration-500 ${
+                    isActive 
+                      ? (isDarkMode ? 'bg-amber-400/20 text-amber-400' : 'bg-amber-700/10 text-amber-700') 
+                      : 'bg-black/5 text-black/20 opacity-0 group-hover:opacity-100'
+                  }`}>
+                    {p.total_books} VOL
+                  </div>
+                </div>
+
+                <div className={`absolute bottom-0 left-0 h-1 transition-all duration-700 ease-out ${
+                  isDarkMode ? 'bg-amber-400' : 'bg-amber-600'
+                } ${isActive ? 'w-full opacity-100' : 'w-0 opacity-0'}`} />
               </button>
             );
           })}
