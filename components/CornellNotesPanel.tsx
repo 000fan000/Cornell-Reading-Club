@@ -9,6 +9,7 @@ interface CornellNotesPanelProps {
   chapterText: string;
   theme: Theme;
   onSave: (notes: UserNotes) => void;
+  uiLanguage: 'en' | 'zh';
 }
 
 const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({ 
@@ -16,7 +17,8 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
   initialNotes, 
   chapterText,
   theme,
-  onSave 
+  onSave,
+  uiLanguage
 }) => {
   const [notes, setNotes] = useState<UserNotes>(initialNotes || { cues: [], notes: '', summary: '' });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -33,8 +35,9 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
 
   const handleAiGenerate = async () => {
     setIsGenerating(true);
-    const cues = await geminiService.generateCues(chapterText);
-    const summary = await geminiService.generateSummary(chapterText);
+    const lang = uiLanguage === 'zh' ? 'Chinese' : 'English';
+    const cues = await geminiService.generateCues(chapterText, lang);
+    const summary = await geminiService.generateSummary(chapterText, lang);
     
     const updated = {
       ...notes,
@@ -59,8 +62,12 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
     <div className={`h-full flex flex-col border-t-2 panel-border ${isDark ? 'bg-[#1a1a1a]' : 'bg-slate-50'}`}>
       <div className="flex items-center justify-between px-6 py-2 border-b panel-border bg-opacity-50">
         <div className="flex items-center gap-4">
-           <h3 className="text-xs font-bold uppercase tracking-widest opacity-60">Cornell Notes</h3>
-           <span className="text-[10px] opacity-40">Chapter {chapterId}</span>
+           <h3 className="text-xs font-bold uppercase tracking-widest opacity-60">
+             {uiLanguage === 'zh' ? '康奈尔笔记' : 'Cornell Notes'}
+           </h3>
+           <span className="text-[10px] opacity-40">
+             {uiLanguage === 'zh' ? `第 ${chapterId} 章` : `Chapter ${chapterId}`}
+           </span>
         </div>
         <button 
           onClick={handleAiGenerate}
@@ -76,44 +83,47 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-          ) : '✨ Generate AI Assistance'}
+          ) : (uiLanguage === 'zh' ? '✨ 生成 AI 助手建议' : '✨ Generate AI Assistance')}
         </button>
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Cues Section (30%) */}
         <div className={`w-[30%] border-r panel-border flex flex-col ${baseStyles}`}>
-          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">Cues & Questions</div>
+          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">
+            {uiLanguage === 'zh' ? '线索与问题' : 'Cues & Questions'}
+          </div>
           <div className="flex-1 overflow-y-auto p-2">
             <textarea
               className={inputStyles}
-              placeholder="Keywords, prompts, or questions..."
+              placeholder={uiLanguage === 'zh' ? "关键词、提示或问题..." : "Keywords, prompts, or questions..."}
               value={notes.cues.join('\n')}
               onChange={(e) => handleUpdate('cues', e.target.value.split('\n'))}
             />
           </div>
         </div>
 
-        {/* Main Notes Section (50%) */}
         <div className={`w-[50%] border-r panel-border flex flex-col ${baseStyles}`}>
-          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">Notes & Reflections</div>
+          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">
+            {uiLanguage === 'zh' ? '笔记与心得' : 'Notes & Reflections'}
+          </div>
           <div className="flex-1 overflow-y-auto p-2">
             <textarea
               className={inputStyles}
-              placeholder="Record your insights here..."
+              placeholder={uiLanguage === 'zh' ? "在此记录你的洞察..." : "Record your insights here..."}
               value={notes.notes}
               onChange={(e) => handleUpdate('notes', e.target.value)}
             />
           </div>
         </div>
 
-        {/* Summary Section (20%) */}
         <div className={`w-[20%] flex flex-col ${baseStyles}`}>
-          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">Summary</div>
+          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">
+            {uiLanguage === 'zh' ? '总结' : 'Summary'}
+          </div>
           <div className="flex-1 overflow-y-auto p-2">
             <textarea
               className={inputStyles}
-              placeholder="Key takeaway..."
+              placeholder={uiLanguage === 'zh' ? "关键结论..." : "Key takeaway..."}
               value={notes.summary}
               onChange={(e) => handleUpdate('summary', e.target.value)}
             />

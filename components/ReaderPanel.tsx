@@ -9,6 +9,7 @@ interface ReaderPanelProps {
   showTranslation: boolean;
   targetLanguage: string;
   isGeneratingTranslation?: boolean;
+  uiLanguage: 'en' | 'zh';
 }
 
 const ReaderPanel: React.FC<ReaderPanelProps> = ({ 
@@ -17,7 +18,8 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
   settings,
   showTranslation,
   targetLanguage,
-  isGeneratingTranslation 
+  isGeneratingTranslation,
+  uiLanguage
 }) => {
   const isDark = theme === 'dark' || theme === 'nord' || theme === 'mocha';
   const isSepia = theme === 'sepia' || theme === 'solarized';
@@ -56,7 +58,9 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
         style={{ maxWidth: `${settings.maxWidth}px` }}
       >
         <header className="border-b pb-6 border-current opacity-20 text-center md:text-left">
-          <h2 className="text-sm uppercase tracking-widest opacity-60 font-medium">Chapter {chapter.chapter_number}</h2>
+          <h2 className="text-sm uppercase tracking-widest opacity-60 font-medium">
+            {uiLanguage === 'zh' ? `第 ${chapter.chapter_number} 章` : `Chapter ${chapter.chapter_number}`}
+          </h2>
           <h1 className="text-3xl font-bold mt-2 font-serif" style={{ fontFamily: settings.fontFamily }}>{chapter.chapter_title}</h1>
         </header>
 
@@ -75,7 +79,7 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
               <div className="flex items-center gap-4 mb-4">
                 <div className="h-px flex-1 bg-current opacity-10"></div>
                 <span className="text-[10px] uppercase tracking-[0.2em] opacity-40 font-bold">
-                  Translation ({targetLanguage})
+                  {uiLanguage === 'zh' ? `翻译 (${targetLanguage})` : `Translation (${targetLanguage})`}
                 </span>
                 <div className="h-px flex-1 bg-current opacity-10"></div>
               </div>
@@ -86,7 +90,9 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span className="text-xs uppercase tracking-widest">Generating {targetLanguage} translation...</span>
+                  <span className="text-xs uppercase tracking-widest">
+                    {uiLanguage === 'zh' ? `正在生成 ${targetLanguage} 翻译...` : `Generating ${targetLanguage} translation...`}
+                  </span>
                 </div>
               ) : activeTranslation ? (
                 <div className="border-l-2 border-indigo-400 pl-6 italic">
@@ -97,11 +103,13 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
                     {activeTranslation.text}
                   </p>
                   <cite className="text-xs not-italic uppercase tracking-wider mt-2 block opacity-50">
-                    — Translated by {activeTranslation.translator}
+                    — {uiLanguage === 'zh' ? `译者：${activeTranslation.translator}` : `Translated by ${activeTranslation.translator}`}
                   </cite>
                 </div>
               ) : (
-                <p className="text-center text-sm opacity-40 italic py-4">No {targetLanguage} translation available.</p>
+                <p className="text-center text-sm opacity-40 italic py-4">
+                  {uiLanguage === 'zh' ? `暂无 ${targetLanguage} 翻译。` : `No ${targetLanguage} translation available.`}
+                </p>
               )}
             </div>
           )}

@@ -13,6 +13,7 @@ import { geminiService } from './services/gemini';
 const App: React.FC = () => {
   const [view, setView] = useState<'library' | 'reader' | 'upload'>('library');
   const [currentBookData, setCurrentBookData] = useState<Book | null>(null);
+  const [uiLanguage, setUiLanguage] = useState<'en' | 'zh'>(() => (localStorage.getItem('app_ui_lang') as 'en' | 'zh') || 'zh');
   
   const [activeReaderBook, setActiveReaderBook] = useState<ReaderBook>(DEFAULT_BOOK);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -20,7 +21,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [showTranslations, setShowTranslations] = useState(false);
-  const [targetLanguage, setTargetLanguage] = useState('English');
+  const [targetLanguage, setTargetLanguage] = useState(() => uiLanguage === 'zh' ? 'Chinese' : 'English');
   const [showNotes, setShowNotes] = useState(false);
   
   const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
@@ -68,18 +69,18 @@ const App: React.FC = () => {
       base.periods = {
         ...base.periods,
         user_uploads: {
-          period_name: "Personal Archive",
-          era: "My Library",
-          time_range: "User Collected",
-          description: "Volumes acquired and processed via AI digitization.",
-          key_characteristics: ["Personal Interest", "AI Processed", "Private Collection"],
+          period_name: uiLanguage === 'zh' ? "个人档案" : "Personal Archive",
+          era: uiLanguage === 'zh' ? "我的图书馆" : "My Library",
+          time_range: uiLanguage === 'zh' ? "用户收藏" : "User Collected",
+          description: uiLanguage === 'zh' ? "通过 AI 数字化获取并处理的书卷。" : "Volumes acquired and processed via AI digitization.",
+          key_characteristics: uiLanguage === 'zh' ? ["个人兴趣", "AI 处理", "私藏"] : ["Personal Interest", "AI Processed", "Private Collection"],
           total_books: userBooks.length,
           books: userBooks
         }
       };
     }
     return base;
-  }, [userReaderBooks]);
+  }, [userReaderBooks, uiLanguage]);
 
   useEffect(() => {
     localStorage.setItem('cornell_notes_db_v2', JSON.stringify(notesStorage));
@@ -87,7 +88,8 @@ const App: React.FC = () => {
     localStorage.setItem('user_saved_themes', JSON.stringify(savedThemes));
     localStorage.setItem('user_reader_books', JSON.stringify(userReaderBooks));
     localStorage.setItem('app_theme', theme);
-  }, [notesStorage, readerSettings, savedThemes, userReaderBooks, theme]);
+    localStorage.setItem('app_ui_lang', uiLanguage);
+  }, [notesStorage, readerSettings, savedThemes, userReaderBooks, theme, uiLanguage]);
 
   const handleSelectBook = useCallback((book: Book) => {
     setCurrentBookData(book);
@@ -97,7 +99,7 @@ const App: React.FC = () => {
     } else {
       const readerBook: ReaderBook = {
         id: book.id,
-        title: book.title_translations.en || book.title_original,
+        title: uiLanguage === 'en' ? (book.title_translations.en || book.title_original) : (book.title_translations.zh || book.title_original),
         author: book.author.name_latinized,
         language: book.metadata.original_language,
         publisher: "Library101",
@@ -106,8 +108,8 @@ const App: React.FC = () => {
         chapters: [
           {
             chapter_number: 1,
-            chapter_title: "Introduction",
-            original_text: `[The digitized transcript for ${book.title_original} is currently being indexed. AI-powered summary and cues are available below.]`,
+            chapter_title: uiLanguage === 'zh' ? "引言" : "Introduction",
+            original_text: uiLanguage === 'zh' ? `[${book.title_original} 的数字化文本正在索引中。AI 驱动的摘要和线索可在下方查看。]` : `[The digitized transcript for ${book.title_original} is currently being indexed. AI-powered summary and cues are available below.]`,
             translations: [],
             book_annotations: []
           }
@@ -124,7 +126,7 @@ const App: React.FC = () => {
     
     setView('reader');
     setCurrentChapterIndex(0);
-  }, [userReaderBooks]);
+  }, [userReaderBooks, uiLanguage]);
 
   const handleCommitBook = (book: ReaderBook) => {
     setUserReaderBooks(prev => ({ ...prev, [book.id]: book }));
@@ -163,7 +165,8 @@ const App: React.FC = () => {
       const fetchAnnotations = async () => {
         setIsGeneratingAnnotations(true);
         try {
-          const annotations = await geminiService.generateAnnotations(currentChapter.original_text);
+          const annotationLang = uiLanguage === 'zh' ? 'Chinese' : 'English';
+          const annotations = await geminiService.generateAnnotations(currentChapter.original_text, annotationLang);
           setActiveReaderBook(prev => {
             const newChapters = [...prev.chapters];
             newChapters[currentChapterIndex] = {
@@ -180,12 +183,18 @@ const App: React.FC = () => {
       };
       fetchAnnotations();
     }
-  }, [currentChapter, currentChapterIndex, isGeneratingAnnotations]);
+  }, [currentChapter, currentChapterIndex, isGeneratingAnnotations, uiLanguage]);
 
   const toggleTheme = useCallback(() => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
   }, [theme]);
+
+  const toggleLanguage = useCallback(() => {
+    const nextLang = uiLanguage === 'zh' ? 'en' : 'zh';
+    setUiLanguage(nextLang);
+    setTargetLanguage(nextLang === 'zh' ? 'Chinese' : 'English');
+  }, [uiLanguage]);
 
   const handleSaveNotes = useCallback((notes: UserNotes) => {
     if (!activeReaderBook || !currentChapter) return;
@@ -204,6 +213,7 @@ const App: React.FC = () => {
         onBack={() => setView('library')} 
         onCommit={handleCommitBook}
         theme={theme}
+        uiLanguage={uiLanguage}
       />
     );
   }
@@ -214,7 +224,9 @@ const App: React.FC = () => {
         data={libraryWithUserBooks} 
         onSelectBook={handleSelectBook} 
         theme={theme} 
+        uiLanguage={uiLanguage}
         onToggleTheme={toggleTheme}
+        onToggleLanguage={toggleLanguage}
         onAcquireVolume={() => setView('upload')}
       />
     );
@@ -238,7 +250,7 @@ const App: React.FC = () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Library
+            {uiLanguage === 'zh' ? '图书馆' : 'Library'}
           </button>
           <div className="hidden sm:block">
             <h1 className="text-lg font-bold font-serif leading-tight">{activeReaderBook.title}</h1>
@@ -247,11 +259,18 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+             <button onClick={toggleLanguage} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest hover:bg-black/5 transition-colors">
+               {uiLanguage === 'zh' ? 'CHS' : 'ENG'}
+             </button>
              <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors">
                 {isDarkMode ? <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg> : <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
              </button>
-             <button onClick={() => setShowTranslations(!showTranslations)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showTranslations ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'}`}>Translation</button>
-             <button onClick={() => setShowNotes(!showNotes)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showNotes ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'}`}>Notes</button>
+             <button onClick={() => setShowTranslations(!showTranslations)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showTranslations ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'}`}>
+               {uiLanguage === 'zh' ? '翻译' : 'Translation'}
+             </button>
+             <button onClick={() => setShowNotes(!showNotes)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showNotes ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'}`}>
+               {uiLanguage === 'zh' ? '笔记' : 'Notes'}
+             </button>
              <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg bg-black bg-opacity-5"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg></button>
         </div>
       </header>
@@ -261,14 +280,17 @@ const App: React.FC = () => {
           <div className="w-3/4 h-full relative border-r panel-border flex flex-col">
              <div className="flex-1 min-h-0 overflow-hidden relative">
                {currentChapter ? (
-                 <ReaderPanel chapter={currentChapter} theme={theme} settings={readerSettings} showTranslation={showTranslations} targetLanguage={targetLanguage} isGeneratingTranslation={isGeneratingTranslation} />
+                 <ReaderPanel chapter={currentChapter} theme={theme} settings={readerSettings} showTranslation={showTranslations} targetLanguage={targetLanguage} isGeneratingTranslation={isGeneratingTranslation} uiLanguage={uiLanguage} />
                ) : (
-                 <div className="flex items-center justify-center h-full opacity-30 italic">No content available in this volume.</div>
+                 <div className="flex items-center justify-center h-full opacity-30 italic">
+                   {uiLanguage === 'zh' ? '此书卷暂无内容。' : 'No content available in this volume.'}
+                 </div>
                )}
              </div>
-             {/* Chapter Navigation Bar */}
              <div className={`h-14 flex-shrink-0 border-t panel-border flex items-center px-6 overflow-x-auto no-scrollbar gap-4 ${isDarkMode ? 'bg-[#151515]' : 'bg-slate-100/50'}`}>
-                <span className="text-[9px] font-black uppercase tracking-widest opacity-30 whitespace-nowrap">Manuscript Sections</span>
+                <span className="text-[9px] font-black uppercase tracking-widest opacity-30 whitespace-nowrap">
+                  {uiLanguage === 'zh' ? '手稿章节' : 'Manuscript Sections'}
+                </span>
                 <div className="flex items-center gap-2 pr-4">
                   {activeReaderBook.chapters.map((ch, idx) => (
                     <button
@@ -288,12 +310,12 @@ const App: React.FC = () => {
              </div>
           </div>
           <div className="w-1/4 h-full">
-            <AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} />
+            <AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} uiLanguage={uiLanguage} />
           </div>
         </div>
         {showNotes && currentChapter && (
           <div className="h-1/3 border-t panel-border">
-             <CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} />
+             <CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} uiLanguage={uiLanguage} />
           </div>
         )}
       </main>

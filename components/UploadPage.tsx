@@ -7,11 +7,12 @@ interface UploadPageProps {
   onBack: () => void;
   onCommit: (book: ReaderBook) => void;
   theme: Theme;
+  uiLanguage: 'en' | 'zh';
 }
 
 type UploadStep = 'idle' | 'processing' | 'review';
 
-const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
+const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme, uiLanguage }) => {
   const [step, setStep] = useState<UploadStep>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [processedBook, setProcessedBook] = useState<ReaderBook | null>(null);
@@ -28,7 +29,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
   const handleFile = async (file: File) => {
     setStep('processing');
     setLogs([]);
-    addLog(`Initiating digitization for: ${file.name}`);
+    addLog(uiLanguage === 'zh' ? `启动数字化流程：${file.name}` : `Initiating digitization for: ${file.name}`);
     
     try {
       const fileReader = new FileReader();
@@ -42,18 +43,15 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
         else fileReader.readAsText(file);
       });
 
-      addLog(`File read successful (${(file.size / 1024).toFixed(1)} KB). Transmitting to Gemini AI...`);
+      addLog(uiLanguage === 'zh' ? `文件读取成功 (${(file.size / 1024).toFixed(1)} KB)。正在传输至 Gemini AI...` : `File read successful (${(file.size / 1024).toFixed(1)} KB). Transmitting to Gemini AI...`);
       
-      // Injecting a slight delay for better UX rhythm
       await new Promise(r => setTimeout(r, 800));
 
       const book = await geminiService.processBookFile(fileData, file.type, file.name);
       
-      addLog(`Digitization complete. Metadata extracted.`);
+      addLog(uiLanguage === 'zh' ? `数字化完成。元数据已提取。` : `Digitization complete. Metadata extracted.`);
       setProcessedBook(book);
       
-      // Mocking debug data for current version as geminiService hides the raw response 
-      // In a real debug scenario, we would modify geminiService to return these.
       setDebugData({
         prompt: `System: Digital Librarian\nTask: Structured JSON Extraction\nFile: ${file.name}\nMime: ${file.type}`,
         rawResponse: JSON.stringify(book, null, 2)
@@ -61,7 +59,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
 
       setStep('review');
     } catch (error) {
-      addLog(`ERROR: ${error instanceof Error ? error.message : 'Unknown failure during transcription'}`);
+      addLog(uiLanguage === 'zh' ? `错误：${error instanceof Error ? error.message : '转录过程中发生未知错误'}` : `ERROR: ${error instanceof Error ? error.message : 'Unknown failure during transcription'}`);
       console.error(error);
     }
   };
@@ -78,8 +76,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
           </button>
           <div>
-            <h1 className="text-xl font-black italic">Digitization Lab</h1>
-            <p className="text-[10px] uppercase tracking-[0.3em] opacity-40">Humanity's Labyrinth / Volume Acquisition</p>
+            <h1 className="text-xl font-black italic">{uiLanguage === 'zh' ? '数字化实验室' : 'Digitization Lab'}</h1>
+            <p className="text-[10px] uppercase tracking-[0.3em] opacity-40">
+              {uiLanguage === 'zh' ? '人类迷宫 / 卷册获取' : 'Humanity\'s Labyrinth / Volume Acquisition'}
+            </p>
           </div>
         </div>
       </header>
@@ -97,8 +97,12 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
             <div className="p-6 rounded-full bg-current bg-opacity-5 mb-6 group-hover:animate-float">
               <svg className="w-12 h-12 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">Acquire New Volume</h2>
-            <p className="text-sm opacity-50 max-w-sm text-center px-4">Upload a PDF or TXT manuscript. Gemini will index, transcribe, and verify the text for the library.</p>
+            <h2 className="text-2xl font-bold mb-2">
+              {uiLanguage === 'zh' ? '收纳新卷' : 'Acquire New Volume'}
+            </h2>
+            <p className="text-sm opacity-50 max-w-sm text-center px-4">
+              {uiLanguage === 'zh' ? '上传 PDF 或 TXT 手稿。Gemini 将对文本进行索引、转录并验证。' : 'Upload a PDF or TXT manuscript. Gemini will index, transcribe, and verify the text for the library.'}
+            </p>
             <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
           </div>
         )}
@@ -112,7 +116,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
                       <svg className="w-8 h-8 opacity-40 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
                    </div>
                 </div>
-                <h2 className="text-3xl font-black tracking-tight italic">Digitizing Volume...</h2>
+                <h2 className="text-3xl font-black tracking-tight italic">
+                  {uiLanguage === 'zh' ? '卷册数字化中...' : 'Digitizing Volume...'}
+                </h2>
              </div>
              
              <div className={`p-6 rounded-2xl h-64 overflow-y-auto font-mono text-xs space-y-2 border ${
@@ -128,14 +134,18 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
           <div className="w-full max-w-5xl flex gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
              <div className="flex-1 space-y-8 overflow-y-auto max-h-[70vh] no-scrollbar pr-4">
                 <section>
-                   <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-4 block">Extraction Results</span>
+                   <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-4 block">
+                     {uiLanguage === 'zh' ? '提取结果' : 'Extraction Results'}
+                   </span>
                    <div className={`p-8 rounded-3xl border shadow-sm ${
                      isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-black/5'
                    }`}>
                       <div className="grid grid-cols-2 gap-12">
                          <div className="space-y-6">
                             <div>
-                               <label className="text-[9px] font-black uppercase opacity-30 block mb-1">Title</label>
+                               <label className="text-[9px] font-black uppercase opacity-30 block mb-1">
+                                 {uiLanguage === 'zh' ? '标题' : 'Title'}
+                               </label>
                                <input 
                                  className="w-full bg-transparent text-2xl font-black outline-none border-b border-transparent focus:border-current"
                                  value={processedBook.title}
@@ -143,7 +153,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
                                />
                             </div>
                             <div>
-                               <label className="text-[9px] font-black uppercase opacity-30 block mb-1">Author</label>
+                               <label className="text-[9px] font-black uppercase opacity-30 block mb-1">
+                                 {uiLanguage === 'zh' ? '作者' : 'Author'}
+                               </label>
                                <input 
                                  className="w-full bg-transparent text-lg font-bold outline-none border-b border-transparent focus:border-current"
                                  value={processedBook.author}
@@ -157,7 +169,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
                             </div>
                          </div>
                          <div className="space-y-4">
-                            <label className="text-[9px] font-black uppercase opacity-30 block">Chapter Structure</label>
+                            <label className="text-[9px] font-black uppercase opacity-30 block">
+                              {uiLanguage === 'zh' ? '章节结构' : 'Chapter Structure'}
+                            </label>
                             <div className="space-y-2">
                                {processedBook.chapters.map(ch => (
                                  <div key={ch.chapter_number} className="flex items-center gap-3 p-3 rounded-xl bg-current bg-opacity-[0.02] border border-current border-opacity-[0.03]">
@@ -173,14 +187,16 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
 
                 {showDebug && debugData && (
                   <section className="animate-in slide-in-from-top-4 duration-300">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-4 block text-amber-500">Debug Forge (Gemini Response)</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-4 block text-amber-500">
+                      {uiLanguage === 'zh' ? '调试工坊 (Gemini 响应)' : 'Debug Forge (Gemini Response)'}
+                    </span>
                     <div className="grid grid-cols-2 gap-4 h-96">
                        <div className={`p-4 rounded-xl font-mono text-[10px] overflow-auto border ${isDarkMode ? 'bg-black border-white/10' : 'bg-slate-900 text-white border-black/5'}`}>
-                          <div className="opacity-40 mb-2">// Extraction Prompt</div>
+                          <div className="opacity-40 mb-2">// {uiLanguage === 'zh' ? '提取提示词' : 'Extraction Prompt'}</div>
                           {debugData.prompt}
                        </div>
                        <div className={`p-4 rounded-xl font-mono text-[10px] overflow-auto border ${isDarkMode ? 'bg-black border-white/10 text-emerald-400' : 'bg-slate-900 text-emerald-400 border-black/5'}`}>
-                          <div className="opacity-40 mb-2">// Raw JSON Response</div>
+                          <div className="opacity-40 mb-2">// {uiLanguage === 'zh' ? '原始 JSON 响应' : 'Raw JSON Response'}</div>
                           {debugData.rawResponse}
                        </div>
                     </div>
@@ -190,13 +206,17 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
 
              <aside className="w-80 space-y-6 flex-shrink-0">
                 <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-amber-400 text-black border-transparent' : 'bg-indigo-600 text-white border-transparent'}`}>
-                   <h3 className="text-lg font-black mb-2">Digitization Ready</h3>
-                   <p className="text-xs opacity-80 leading-relaxed mb-6">The AI has successfully mapped the manuscript into our library schema. Review the chapters and commit to the permanent collection.</p>
+                   <h3 className="text-lg font-black mb-2">
+                     {uiLanguage === 'zh' ? '数字化就绪' : 'Digitization Ready'}
+                   </h3>
+                   <p className="text-xs opacity-80 leading-relaxed mb-6">
+                     {uiLanguage === 'zh' ? 'AI 已成功将手稿映射至图书馆架构。请核对章节并收录至永久馆藏。' : 'The AI has successfully mapped the manuscript into our library schema. Review the chapters and commit to the permanent collection.'}
+                   </p>
                    <button 
                      onClick={() => onCommit(processedBook)}
                      className="w-full py-4 rounded-2xl bg-black text-white font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl"
                    >
-                     Commit to Library
+                     {uiLanguage === 'zh' ? '收录至图书馆' : 'Commit to Library'}
                    </button>
                 </div>
                 <button 
@@ -205,13 +225,13 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme }) => {
                     isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/10 hover:bg-black/5'
                   }`}
                 >
-                  {showDebug ? 'Hide Debug Forge' : 'Open Debug Forge'}
+                  {showDebug ? (uiLanguage === 'zh' ? '隐藏调试工坊' : 'Hide Debug Forge') : (uiLanguage === 'zh' ? '开启调试工坊' : 'Open Debug Forge')}
                 </button>
                 <button 
                   onClick={() => setStep('idle')}
                   className="w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-all"
                 >
-                  Discard & Retry
+                  {uiLanguage === 'zh' ? '舍弃并重试' : 'Discard & Retry'}
                 </button>
              </aside>
           </div>

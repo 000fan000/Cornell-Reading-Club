@@ -6,18 +6,20 @@ interface LibraryHomeProps {
   data: LibraryData;
   onSelectBook: (book: Book) => void;
   theme: Theme;
+  uiLanguage: 'en' | 'zh';
   onToggleTheme: () => void;
+  onToggleLanguage: () => void;
   onAcquireVolume?: () => void;
 }
 
 const COVER_PALETTES = [
-  { bg: 'bg-[#f4f1ea]', text: 'text-[#5d544b]', accent: 'border-[#d4af37]', hex: '#d4af37' }, // Linen
-  { bg: 'bg-[#e8efea]', text: 'text-[#4a5d52]', accent: 'border-[#8fbc8f]', hex: '#8fbc8f' }, // Soft Sage
-  { bg: 'bg-[#e3e9f0]', text: 'text-[#4a5568]', accent: 'border-[#4682b4]', hex: '#4682b4' }, // Pale Sky
-  { bg: 'bg-[#f4e9e9]', text: 'text-[#6b4a4a]', accent: 'border-[#cd5c5c]', hex: '#cd5c5c' }, // Dusty Rose
-  { bg: 'bg-[#f2efe8]', text: 'text-[#5d5a4b]', accent: 'border-[#b69f84]', hex: '#b69f84' }, // Warm Sand
-  { bg: 'bg-[#ede9f4]', text: 'text-[#554a6b]', accent: 'border-[#9f84b6]', hex: '#9f84b6' }, // Soft Lavender
-  { bg: 'bg-[#fcfaf2]', text: 'text-[#2c241e]', accent: 'border-[#d4af37]', hex: '#d4af37' }, // Ivory
+  { bg: 'bg-[#f4f1ea]', text: 'text-[#5d544b]', accent: 'border-[#d4af37]', hex: '#d4af37' },
+  { bg: 'bg-[#e8efea]', text: 'text-[#4a5d52]', accent: 'border-[#8fbc8f]', hex: '#8fbc8f' },
+  { bg: 'bg-[#e3e9f0]', text: 'text-[#4a5568]', accent: 'border-[#4682b4]', hex: '#4682b4' },
+  { bg: 'bg-[#f4e9e9]', text: 'text-[#6b4a4a]', accent: 'border-[#cd5c5c]', hex: '#cd5c5c' },
+  { bg: 'bg-[#f2efe8]', text: 'text-[#5d5a4b]', accent: 'border-[#b69f84]', hex: '#b69f84' },
+  { bg: 'bg-[#ede9f4]', text: 'text-[#554a6b]', accent: 'border-[#9f84b6]', hex: '#9f84b6' },
+  { bg: 'bg-[#fcfaf2]', text: 'text-[#2c241e]', accent: 'border-[#d4af37]', hex: '#d4af37' },
 ];
 
 const ERA_ICONS: Record<string, React.ReactNode> = {
@@ -72,7 +74,7 @@ const parseYear = (dateStr: string): number => {
   return isBCE ? -year : year;
 };
 
-const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, onToggleTheme, onAcquireVolume }) => {
+const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, uiLanguage, onToggleTheme, onToggleLanguage, onAcquireVolume }) => {
   const [activePeriodKey, setActivePeriodKey] = useState<string>(Object.keys(data.periods)[0]);
   const [organizationMode, setOrganizationMode] = useState<'region' | 'genre'>('region');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -169,7 +171,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     <div className="h-full flex flex-col">
       <div className="mb-8">
         <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mb-2 ${isDarkMode ? 'text-white' : ''}`}>
-          {organizationMode === 'region' ? 'Cultural Domain' : 'Genre Index'}
+          {organizationMode === 'region' ? (uiLanguage === 'zh' ? '文化疆域' : 'Cultural Domain') : (uiLanguage === 'zh' ? '类型索引' : 'Genre Index')}
         </h4>
         <div className={`h-[1px] w-full bg-current opacity-[0.05]`}></div>
       </div>
@@ -200,8 +202,8 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       </nav>
       <div className={`mt-auto pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
         <div className="flex items-center justify-between opacity-20">
-           <span className="text-[8px] font-black uppercase tracking-widest">Showing</span>
-           <span className="text-[10px] font-bold uppercase">{groupedData.reduce((acc, curr) => acc + curr[1].count, 0)} VOL</span>
+           <span className="text-[8px] font-black uppercase tracking-widest">{uiLanguage === 'zh' ? '显示' : 'Showing'}</span>
+           <span className="text-[10px] font-bold uppercase">{groupedData.reduce((acc, curr) => acc + curr[1].count, 0)} {uiLanguage === 'zh' ? '卷' : 'VOL'}</span>
         </div>
       </div>
     </div>
@@ -230,11 +232,16 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
              }`}
            >
              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
-             Acquire Volume
+             {uiLanguage === 'zh' ? '收纳新卷' : 'Acquire Volume'}
            </button>
         </div>
 
         <div className="absolute right-8 top-10 flex items-center gap-4">
+          <button onClick={onToggleLanguage} className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+            isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-400' : 'bg-black/5 hover:bg-black/10 text-indigo-600'
+          }`}>
+             {uiLanguage === 'zh' ? 'CHS' : 'ENG'}
+          </button>
           <div className={`flex items-center gap-1 p-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
             isDarkMode ? 'bg-white/5' : 'bg-black/5'
           }`}>
@@ -242,13 +249,13 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
               onClick={() => setOrganizationMode('region')} 
               className={`px-3 py-1.5 rounded-full transition-all duration-300 ${organizationMode === 'region' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40 hover:opacity-100'}`}
             >
-              Region
+              {uiLanguage === 'zh' ? '疆域' : 'Region'}
             </button>
             <button 
               onClick={() => setOrganizationMode('genre')} 
               className={`px-3 py-1.5 rounded-full transition-all duration-300 ${organizationMode === 'genre' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40 hover:opacity-100'}`}
             >
-              Genre
+              {uiLanguage === 'zh' ? '类型' : 'Genre'}
             </button>
           </div>
           <button onClick={onToggleTheme} className={`p-2.5 rounded-full transition-all duration-300 ${
@@ -263,10 +270,10 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         </div>
         <div className="flex items-center justify-center gap-3 mb-1">
           <div className={`h-px w-6 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
-          <span className={`text-[9px] uppercase tracking-[0.6em] font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>{data.library.concept}</span>
+          <span className={`text-[9px] uppercase tracking-[0.6em] font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>{uiLanguage === 'zh' ? data.library.concept : '101 CORE WORKS'}</span>
           <div className={`h-px w-6 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
         </div>
-        <h1 className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#3a322b]'}`}>{data.library.name}</h1>
+        <h1 className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#3a322b]'}`}>{uiLanguage === 'zh' ? data.library.name : 'Library 101'}</h1>
         <p className={`text-[11px] opacity-30 italic mt-1 max-w-lg mx-auto ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>"{activePeriod.description}"</p>
       </header>
 
@@ -274,7 +281,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-[#faf9f6] border-black/5'
       }`}>
         <div className="flex-shrink-0 flex items-center gap-3">
-          <span className="text-[9px] font-black uppercase tracking-widest opacity-20">Thematic Filter:</span>
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-20">{uiLanguage === 'zh' ? '主题过滤' : 'Thematic Filter'}:</span>
           {activeTag && (
             <button 
               onClick={() => setActiveTag(null)}
@@ -282,7 +289,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                 isDarkMode ? 'bg-amber-400 text-black border-transparent' : 'bg-amber-700 text-white border-transparent'
               }`}
             >
-              Clear
+              {uiLanguage === 'zh' ? '清除' : 'Clear'}
               <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           )}
@@ -320,8 +327,8 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
             {groupedData.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center opacity-30 px-10 text-center space-y-4">
                  <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                 <p className="text-xl font-bold font-serif italic">No volumes found within this conceptual intersection.</p>
-                 <button onClick={() => setActiveTag(null)} className="text-[10px] font-black uppercase tracking-widest border-b border-current">Reset Concept Filter</button>
+                 <p className="text-xl font-bold font-serif italic">{uiLanguage === 'zh' ? '在此概念交汇处未发现任何卷册。' : 'No volumes found within this conceptual intersection.'}</p>
+                 <button onClick={() => setActiveTag(null)} className="text-[10px] font-black uppercase tracking-widest border-b border-current">{uiLanguage === 'zh' ? '重置概念过滤' : 'Reset Concept Filter'}</button>
               </div>
             ) : groupedData.map(([category, groupData], groupIndex) => (
               <section 
@@ -335,7 +342,9 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                 }`}
               >
                 <div className="mb-24 text-center">
-                  <span className={`text-[9px] font-black uppercase tracking-[0.6em] mb-3 block ${isDarkMode ? 'text-amber-400/60' : 'text-amber-700/60'}`}>{organizationMode === 'region' ? 'CULTURAL DOMAIN' : 'LITERARY GENRE'}</span>
+                  <span className={`text-[9px] font-black uppercase tracking-[0.6em] mb-3 block ${isDarkMode ? 'text-amber-400/60' : 'text-amber-700/60'}`}>
+                    {organizationMode === 'region' ? (uiLanguage === 'zh' ? '文化疆域' : 'CULTURAL DOMAIN') : (uiLanguage === 'zh' ? '文学类型' : 'LITERARY GENRE')}
+                  </span>
                   <h2 className={`text-4xl font-black font-zh tracking-tight border-b pb-5 px-16 inline-block transition-colors duration-500 ${
                     isDarkMode ? 'text-white border-white/10' : 'text-[#4a423b] border-amber-900/10'
                   }`}>{category}</h2>
@@ -379,8 +388,8 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                                   <span className="text-[10px] md:text-[13px] tracking-[0.1em] font-black font-zh opacity-60 mb-4 block border-b border-current/10 pb-2 truncate">
                                     {book.author.name_chinese || book.author.name_original}
                                   </span>
-                                  <h3 className="text-base md:text-xl font-black leading-tight mb-2 font-zh text-current/90 line-clamp-2">{book.title_translations.zh}</h3>
-                                  <p className="text-[8px] md:text-[10px] font-bold opacity-40 italic font-serif leading-tight line-clamp-2">{book.title_translations.en}</p>
+                                  <h3 className="text-base md:text-xl font-black leading-tight mb-2 font-zh text-current/90 line-clamp-2">{uiLanguage === 'zh' ? book.title_translations.zh : book.title_translations.en}</h3>
+                                  <p className="text-[8px] md:text-[10px] font-bold opacity-40 italic font-serif leading-tight line-clamp-2">{uiLanguage === 'zh' ? book.title_translations.en : book.title_original}</p>
                                 </div>
                                 <div className="relative z-10 pt-3 border-t border-current/10 flex items-center justify-between">
                                   <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest opacity-30 truncate">{book.metadata.genre[0]}</span>
@@ -393,18 +402,18 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                             } ${isDarkMode ? 'bg-[#1a1a1a]/98 border-white/10 text-white backdrop-blur-xl' : 'bg-white/98 border-black/5 text-[#2c241e] backdrop-blur-xl'}`}>
                                <div className="space-y-6">
                                   <div>
-                                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-2">Historical Tapestry</span>
+                                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-2">{uiLanguage === 'zh' ? '历史织锦' : 'Historical Tapestry'}</span>
                                      <p className="text-sm md:text-base leading-relaxed font-serif italic opacity-90">
                                        "{book.civilization_context.historical_context}"
                                      </p>
                                   </div>
                                   <div className="pt-5 border-t border-current/10 grid grid-cols-2 gap-4">
                                      <div>
-                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-40 block mb-1">Cultural Sphere</span>
+                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-40 block mb-1">{uiLanguage === 'zh' ? '文化圈' : 'Cultural Sphere'}</span>
                                         <span className="text-xs font-bold block truncate">{book.civilization_context.cultural_sphere}</span>
                                      </div>
                                      <div>
-                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-40 block mb-1">Region</span>
+                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-40 block mb-1">{uiLanguage === 'zh' ? '疆域' : 'Region'}</span>
                                         <span className="text-xs font-bold block truncate">{book.civilization_context.region}</span>
                                      </div>
                                   </div>
@@ -474,7 +483,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                       ? (isDarkMode ? 'bg-amber-400/20 text-amber-400' : 'bg-amber-700/10 text-amber-700') 
                       : 'bg-black/5 text-black/20 opacity-0 group-hover:opacity-100'
                   }`}>
-                    {p.total_books} VOL
+                    {p.total_books} {uiLanguage === 'zh' ? '卷' : 'VOL'}
                   </div>
                 </div>
 

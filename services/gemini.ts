@@ -3,13 +3,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Translation, BookAnnotation, ReaderBook, Book } from "../types";
 
 export const geminiService = {
-  async generateSummary(text: string): Promise<string> {
+  async generateSummary(text: string, lang: string = "Chinese"): Promise<string> {
     if (!process.env.API_KEY) return "API Key not configured.";
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Summarize the following text in one concise paragraph for a Cornell notes summary section:\n\n${text}`,
+        contents: `Summarize the following text in one concise paragraph for a Cornell notes summary section. The summary MUST be in ${lang}:\n\n${text}`,
       });
       return response.text || "Failed to generate summary.";
     } catch (error) {
@@ -18,13 +18,13 @@ export const geminiService = {
     }
   },
 
-  async generateCues(text: string): Promise<string[]> {
+  async generateCues(text: string, lang: string = "Chinese"): Promise<string[]> {
     if (!process.env.API_KEY) return [];
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Analyze this text and provide 3-5 key concepts or questions as 'Cues' for Cornell note-taking. Return them as a simple list. \n\n${text}`,
+        contents: `Analyze this text and provide 3-5 key concepts or questions as 'Cues' for Cornell note-taking. Return them as a simple list. The cues MUST be in ${lang}. \n\n${text}`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -66,13 +66,13 @@ export const geminiService = {
     }
   },
 
-  async generateAnnotations(text: string): Promise<BookAnnotation[]> {
+  async generateAnnotations(text: string, lang: string = "Chinese"): Promise<BookAnnotation[]> {
     if (!process.env.API_KEY) return [];
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: `Provide 3-5 scholarly annotations for the following text. Include philosophical interpretations, linguistic notes, or historical context. \n\n${text}`,
+        contents: `Provide 3-5 scholarly annotations for the following text. Include philosophical interpretations, linguistic notes, or historical context. The annotations MUST be in ${lang}. \n\n${text}`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -159,7 +159,6 @@ Output MUST be a single JSON object matching the following schema:
         book_annotations: []
       }));
 
-      // If no chapters were extracted, create a default one with the raw file name
       if (chapters.length === 0) {
         chapters.push({
           chapter_number: 1,
