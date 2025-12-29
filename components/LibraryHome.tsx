@@ -19,6 +19,27 @@ const COVER_PALETTES = [
   { bg: 'bg-[#fcfaf2]', text: 'text-[#2c241e]', accent: 'border-[#d4af37]' }, // Ivory
 ];
 
+/**
+ * Roughly parses a date string into a sortable year number.
+ * Handles "公元前X世纪", "约公元前X年", "公元X世纪", "19XX年" etc.
+ */
+const parseYear = (dateStr: string): number => {
+  if (!dateStr) return 0;
+  const cleaned = dateStr.replace('约', '').replace('世纪', '00');
+  const isBCE = cleaned.includes('前');
+  const match = cleaned.match(/\d+/);
+  if (!match) return 0;
+  let year = parseInt(match[0]);
+  
+  // If it was "X世纪", we turned it into "X00", but 5世纪 is actually 400-500.
+  // This is a rough heuristic for sorting.
+  if (dateStr.includes('世纪')) {
+    year = (year - 1) * 100;
+  }
+  
+  return isBCE ? -year : year;
+};
+
 const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, onToggleTheme }) => {
   const [activePeriodKey, setActivePeriodKey] = useState<string>(Object.keys(data.periods)[0]);
   const [organizationMode, setOrganizationMode] = useState<'region' | 'genre'>('region');
@@ -30,28 +51,36 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
   const activePeriod = data.periods[activePeriodKey];
 
   const groupedData = useMemo(() => {
-    const groups: Record<string, { rows: Book[][]; count: number }> = {};
+    const groups: Record<string, { rows: Book[][]; count: number; books: Book[] }> = {};
     
-    activePeriod.books.forEach(book => {
+    // First, sort all books in the period chronologically
+    const sortedBooks = [...activePeriod.books].sort((a, b) => {
+      const yearA = parseYear(a.metadata.estimated_date);
+      const yearB = parseYear(b.metadata.estimated_date);
+      return yearA - yearB;
+    });
+
+    sortedBooks.forEach(book => {
       const category = organizationMode === 'region' 
         ? (book.civilization_context.region || 'Uncharted')
         : (book.metadata.genre[0] || 'Miscellaneous');
         
-      if (!groups[category]) groups[category] = { rows: [], count: 0 };
+      if (!groups[category]) groups[category] = { rows: [], count: 0, books: [] };
       
+      groups[category].books.push(book);
       groups[category].count++;
-      const rows = groups[category].rows;
-      const lastRow = rows[rows.length - 1];
-      
-      if (!lastRow || lastRow.length === 6) {
-        rows.push([book]);
-      } else {
-        lastRow.push(book);
-      }
     });
 
-    const sorted = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-    return sorted;
+    // Structure sorted books into rows of 5 for better spacing and timeline flow
+    const entries = Object.entries(groups).map(([name, g]) => {
+      const rows: Book[][] = [];
+      for (let i = 0; i < g.books.length; i += 5) {
+        rows.push(g.books.slice(i, i + 5));
+      }
+      return [name, { ...g, rows }] as [string, { rows: Book[][]; count: number }];
+    });
+
+    return entries.sort((a, b) => a[0].localeCompare(b[0]));
   }, [activePeriod, organizationMode]);
 
   useEffect(() => {
@@ -158,7 +187,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         isDarkMode ? 'bg-black/40 border-white/5 backdrop-blur-md' : 'bg-white/40 border-black/5 backdrop-blur-sm'
       }`}>
         <div className="absolute right-8 top-10 flex items-center gap-4">
-          {/* Organization Toggle */}
           <div className={`flex items-center gap-1 p-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
             isDarkMode ? 'bg-white/5' : 'bg-black/5'
           }`}>
@@ -210,14 +238,12 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       </header>
 
       <div className={`flex-1 flex w-full overflow-hidden relative ${organizationMode === 'genre' ? 'flex-row-reverse' : 'flex-row'}`}>
-        {/* Navigation Sidebar (Flipped based on mode) */}
         <aside className={`w-56 h-full flex flex-col py-10 px-8 z-20 transition-all duration-500 border-current border-opacity-[0.05] ${
           isDarkMode ? 'bg-[#1a1a1a]/80 backdrop-blur-md' : 'bg-white/20 backdrop-blur-md'
         } ${organizationMode === 'region' ? 'border-r' : 'border-l'}`}>
           {navContent}
         </aside>
 
-        {/* Main Vertical Scroll Area */}
         <main className="flex-1 w-full overflow-hidden relative">
           <div 
             ref={scrollContainerRef}
@@ -234,8 +260,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                     : 'opacity-10 blur-[3px] scale-98 pointer-events-none'
                 }`}
               >
-                {/* Category Header */}
-                <div className="mb-20 text-center">
+                <div className="mb-24 text-center">
                   <span className={`text-[9px] font-black uppercase tracking-[0.6em] mb-3 block ${isDarkMode ? 'text-amber-400/60' : 'text-amber-700/60'}`}>
                     {organizationMode === 'region' ? 'CULTURAL DOMAIN' : 'LITERARY GENRE'}
                   </span>
@@ -246,60 +271,70 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                   </h2>
                 </div>
 
-                {/* Rows within this Category */}
-                <div className="space-y-16 w-full flex flex-col items-center">
+                <div className="space-y-32 w-full flex flex-col items-center">
                   {groupData.rows.map((rowBooks, rowIndex) => (
                     <div 
                       key={rowIndex} 
-                      className="flex justify-center items-center gap-8 md:gap-12 snap-center"
+                      className="flex justify-center items-end gap-6 md:gap-10 snap-center relative pt-12"
                     >
                       {rowBooks.map((book, bookIdx) => {
                         const palette = COVER_PALETTES[(groupIndex + rowIndex + bookIdx) % COVER_PALETTES.length];
+                        const isNotLast = bookIdx < rowBooks.length - 1;
+                        
                         return (
-                          <button
-                            key={book.id}
-                            onClick={() => onSelectBook(book)}
-                            className="group flex flex-col items-center transition-transform duration-500 hover:-translate-y-8"
-                          >
-                            <div className={`w-[135px] h-[200px] md:w-[165px] md:h-[240px] ${palette.bg} ${palette.text} shadow-[4px_10px_25px_-5px_rgba(44,36,30,0.1)] rounded-r-sm border-l-[8px] border-black/5 relative flex flex-col p-4 text-left group-hover:shadow-[10px_25px_45px_-10px_rgba(44,36,30,0.2)] transition-all overflow-hidden ${
-                              isDarkMode ? 'brightness-90 contrast-110' : ''
-                            }`}>
+                          <div key={book.id} className="relative flex flex-col items-center group">
+                            {/* Year Tag & Timeline Connector */}
+                            <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-20 flex items-center">
+                              <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-wider whitespace-nowrap shadow-sm border transition-all duration-500 ${
+                                isDarkMode 
+                                  ? 'bg-[#252525] border-white/10 text-amber-400 group-hover:bg-amber-400 group-hover:text-black' 
+                                  : 'bg-white border-black/5 text-amber-800 group-hover:bg-amber-800 group-hover:text-white'
+                              }`}>
+                                {book.metadata.estimated_date}
+                              </div>
                               
-                              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/linen.png')]"></div>
-                              
-                              <div className="relative z-10 flex-1 flex flex-col pt-1">
-                                <span className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] font-black opacity-40 mb-3 block border-b border-current/10 pb-1.5 truncate">
-                                  {book.author.name_latinized}
-                                </span>
-                                
-                                <h3 className="text-base md:text-lg font-black leading-tight mb-1 font-zh text-current/90 line-clamp-2">
-                                  {book.title_translations.zh}
-                                </h3>
+                              {/* Horizontal Timeline Connector */}
+                              {isNotLast && (
+                                <div className={`absolute left-[50%] top-1/2 -translate-y-1/2 w-[calc(100%+2.5rem)] md:w-[calc(100%+3rem)] h-[1.5px] -z-10 opacity-20 pointer-events-none ${
+                                  isDarkMode ? 'bg-amber-400' : 'bg-amber-800'
+                                }`}>
+                                   {/* Animated Dash Effect */}
+                                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-current to-transparent animate-pulse" />
+                                </div>
+                              )}
+                            </div>
 
-                                <p className="text-[8px] md:text-[9px] font-bold opacity-40 italic font-serif leading-tight line-clamp-2">
-                                  {book.title_translations.en}
-                                </p>
-                                
-                                <div className="absolute bottom-4 left-0 w-full overflow-hidden flex justify-center pointer-events-none select-none px-2">
-                                   <p className="text-[36px] md:text-[48px] font-black opacity-[0.04] group-hover:opacity-[0.07] transition-all duration-700 whitespace-nowrap leading-none tracking-tighter">
-                                     {book.title_original}
-                                   </p>
+                            {/* Book Cover */}
+                            <button
+                              onClick={() => onSelectBook(book)}
+                              className="flex flex-col items-center transition-transform duration-500 hover:-translate-y-6"
+                            >
+                              <div className={`w-[130px] h-[190px] md:w-[155px] md:h-[225px] ${palette.bg} ${palette.text} shadow-[0_15px_35px_-10px_rgba(0,0,0,0.15)] rounded-r-sm border-l-[6px] border-black/10 relative flex flex-col p-4 text-left group-hover:shadow-[0_25px_50px_-15px_rgba(0,0,0,0.25)] transition-all overflow-hidden ${
+                                isDarkMode ? 'brightness-90 contrast-110' : ''
+                              }`}>
+                                <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/linen.png')]"></div>
+                                <div className="relative z-10 flex-1 flex flex-col pt-1">
+                                  <span className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] font-black opacity-40 mb-3 block border-b border-current/10 pb-1.5 truncate">
+                                    {book.author.name_latinized}
+                                  </span>
+                                  <h3 className="text-sm md:text-base font-black leading-tight mb-1 font-zh text-current/90 line-clamp-2">
+                                    {book.title_translations.zh}
+                                  </h3>
+                                  <p className="text-[7px] md:text-[8px] font-bold opacity-40 italic font-serif leading-tight line-clamp-2">
+                                    {book.title_translations.en}
+                                  </p>
+                                </div>
+                                <div className="relative z-10 pt-2 border-t border-current/10 flex items-center justify-between">
+                                  <span className="text-[7px] font-black uppercase tracking-widest opacity-30 truncate">
+                                    {book.metadata.genre[0]}
+                                  </span>
+                                </div>
+                                <div className="absolute -bottom-2 -right-2 text-[40px] font-black opacity-[0.05] italic pointer-events-none select-none">
+                                  {book.id}
                                 </div>
                               </div>
-
-                              <div className="relative z-10 pt-2 border-t border-current/10 flex items-center justify-between">
-                                <span className="text-[7px] font-black uppercase tracking-widest opacity-30 truncate">
-                                  {book.metadata.genre[0]}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-2 group-hover:translate-y-0 text-center">
-                              <span className={`text-[8px] font-black uppercase tracking-[0.2em] block ${isDarkMode ? 'text-amber-400/80' : 'text-amber-700/80'}`}>
-                                {book.metadata.estimated_date}
-                              </span>
-                            </div>
-                          </button>
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -311,7 +346,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         </main>
       </div>
 
-      {/* Timeline Nav */}
       <nav className={`h-20 transition-colors duration-500 relative z-40 flex items-center overflow-x-auto no-scrollbar border-t shadow-[0_-5px_15px_rgba(0,0,0,0.02)] ${
         isDarkMode ? 'bg-black/80 border-white/5 backdrop-blur-xl' : 'bg-white/60 border-black/5 backdrop-blur-md'
       }`}>
