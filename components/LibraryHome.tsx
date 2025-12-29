@@ -7,6 +7,7 @@ interface LibraryHomeProps {
   onSelectBook: (book: Book) => void;
   theme: Theme;
   onToggleTheme: () => void;
+  onAcquireVolume?: () => void;
 }
 
 const COVER_PALETTES = [
@@ -50,6 +51,12 @@ const ERA_ICONS: Record<string, React.ReactNode> = {
       <circle cx="12" cy="12" r="3" />
     </svg>
   ),
+  user_uploads: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
 };
 
 const parseYear = (dateStr: string): number => {
@@ -65,7 +72,7 @@ const parseYear = (dateStr: string): number => {
   return isBCE ? -year : year;
 };
 
-const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, onToggleTheme }) => {
+const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, onToggleTheme, onAcquireVolume }) => {
   const [activePeriodKey, setActivePeriodKey] = useState<string>(Object.keys(data.periods)[0]);
   const [organizationMode, setOrganizationMode] = useState<'region' | 'genre'>('region');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -75,7 +82,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const isDarkMode = theme === 'dark' || theme === 'nord' || theme === 'mocha';
-  const activePeriod = data.periods[activePeriodKey];
+  const activePeriod = data.periods[activePeriodKey] || Object.values(data.periods)[0];
 
   const tagStats = useMemo(() => {
     const stats: Record<string, { weight: number; count: number }> = {};
@@ -215,6 +222,18 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       <header className={`flex flex-col items-center text-center pt-8 pb-4 relative z-30 w-full px-6 transition-colors duration-500 border-b ${
         isDarkMode ? 'bg-black/40 border-white/5 backdrop-blur-md' : 'bg-white/40 border-black/5 backdrop-blur-sm'
       }`}>
+        <div className="absolute left-8 top-10 flex items-center gap-4">
+           <button 
+             onClick={onAcquireVolume}
+             className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-sm border ${
+              isDarkMode ? 'bg-amber-400 text-black border-transparent hover:bg-amber-300' : 'bg-indigo-600 text-white border-transparent hover:bg-indigo-700'
+             }`}
+           >
+             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
+             Acquire Volume
+           </button>
+        </div>
+
         <div className="absolute right-8 top-10 flex items-center gap-4">
           <div className={`flex items-center gap-1 p-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
             isDarkMode ? 'bg-white/5' : 'bg-black/5'
@@ -471,6 +490,13 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes progress {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .animate-progress {
+          animation: progress 2s infinite linear;
+        }
       `}</style>
     </div>
   );

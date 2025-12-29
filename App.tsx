@@ -1,29 +1,22 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LibraryHome from './components/LibraryHome';
 import ReaderPanel from './components/ReaderPanel';
 import AnnotationPanel from './components/AnnotationPanel';
 import CornellNotesPanel from './components/CornellNotesPanel';
 import SettingsPanel from './components/SettingsPanel';
+import UploadPage from './components/UploadPage';
 import { LIBRARY_101, DEFAULT_BOOK } from './constants';
-import { UserNotes, Theme, Book, ReaderBook, ReaderSettings, SavedTheme, Chapter } from './types';
+import { UserNotes, Theme, Book, ReaderBook, ReaderSettings, SavedTheme, Chapter, LibraryData } from './types';
 import { geminiService } from './services/gemini';
 
-const SUPPORTED_LANGUAGES = [
-  "English", "Chinese (Simplified)", "Chinese (Traditional)", 
-  "Japanese", "Korean", "Spanish", "French", "German", 
-  "Italian", "Russian", "Portuguese", "Vietnamese"
-];
-
 const App: React.FC = () => {
-  const [view, setView] = useState<'library' | 'reader'>('library');
+  const [view, setView] = useState<'library' | 'reader' | 'upload'>('library');
   const [currentBookData, setCurrentBookData] = useState<Book | null>(null);
   
-  // The actual reader-compatible book object
   const [activeReaderBook, setActiveReaderBook] = useState<ReaderBook>(DEFAULT_BOOK);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('app_theme') as Theme) || 'light');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const [showTranslations, setShowTranslations] = useState(false);
@@ -48,6 +41,11 @@ const App: React.FC = () => {
     };
   });
 
+  const [userReaderBooks, setUserReaderBooks] = useState<Record<string, ReaderBook>>(() => {
+    const saved = localStorage.getItem('user_reader_books');
+    return saved ? JSON.parse(saved) : {};
+  });
+
   const [savedThemes, setSavedThemes] = useState<SavedTheme[]>(() => {
     const saved = localStorage.getItem('user_saved_themes');
     return saved ? JSON.parse(saved) : [];
@@ -58,56 +56,146 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
-  const currentChapter = activeReaderBook.chapters[currentChapterIndex];
+  const currentChapter = activeReaderBook.chapters && activeReaderBook.chapters.length > 0 
+    ? activeReaderBook.chapters[currentChapterIndex] 
+    : null;
 
-  // Logic to handle book selection from library
-  const handleSelectBook = (book: Book) => {
-    setCurrentBookData(book);
-    // Convert Library Book into a ReaderBook with initial data
-    const readerBook: ReaderBook = {
-      id: book.id,
-      title: book.title_translations.en || book.title_original,
-      author: book.author.name_latinized,
-      language: book.metadata.original_language,
-      publisher: "Library101",
-      publication_year: book.metadata.estimated_date,
-      version: "Core Edition",
-      chapters: [
-        {
-          chapter_number: 1,
-          chapter_title: "Introduction",
-          original_text: `[Preparing core text for ${book.title_original}...]`,
-          translations: [],
-          book_annotations: []
+  const libraryWithUserBooks = useMemo((): LibraryData => {
+    const base = { ...LIBRARY_101 };
+    const userBooks = Object.values(userReaderBooks).map(rb => rb.library_card).filter(Boolean) as Book[];
+    
+    if (userBooks.length > 0) {
+      base.periods = {
+        ...base.periods,
+        user_uploads: {
+          period_name: "Personal Archive",
+          era: "My Library",
+          time_range: "User Collected",
+          description: "Volumes acquired and processed via AI digitization.",
+          key_characteristics: ["Personal Interest", "AI Processed", "Private Collection"],
+          total_books: userBooks.length,
+          books: userBooks
         }
-      ],
-      metadata: {
-        total_chapters: 1,
-        annotation_count: 0,
-        last_updated: new Date().toISOString(),
-        license: "Public Domain"
-      }
-    };
-    setActiveReaderBook(readerBook);
-    setView('reader');
-    setCurrentChapterIndex(0);
-  };
+      };
+    }
+    return base;
+  }, [userReaderBooks]);
 
-  const toggleTheme = useCallback(() => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    localStorage.setItem('app_theme', nextTheme);
-  }, [theme]);
-
-  // Auto-save logic
   useEffect(() => {
     localStorage.setItem('cornell_notes_db_v2', JSON.stringify(notesStorage));
     localStorage.setItem('reader_settings', JSON.stringify(readerSettings));
     localStorage.setItem('user_saved_themes', JSON.stringify(savedThemes));
+    localStorage.setItem('user_reader_books', JSON.stringify(userReaderBooks));
     localStorage.setItem('app_theme', theme);
-  }, [notesStorage, readerSettings, savedThemes, theme]);
+  }, [notesStorage, readerSettings, savedThemes, userReaderBooks, theme]);
+
+  const handleSelectBook = useCallback((book: Book) => {
+    setCurrentBookData(book);
+    
+    // Check if it's a user-uploaded book and retrieve from state
+    if (book.is_user_uploaded && userReaderBooks[book.id]) {
+      setActiveReaderBook(userReaderBooks[book.id]);
+    } else {
+      // Create skeleton for static library books
+      const readerBook: ReaderBook = {
+        id: book.id,
+        title: book.title_translations.en || book.title_original,
+        author: book.author.name_latinized,
+        language: book.metadata.original_language,
+        publisher: "Library101",
+        publication_year: book.metadata.estimated_date,
+        version: "Core Edition",
+        chapters: [
+          {
+            chapter_number: 1,
+            chapter_title: "Introduction",
+            original_text: `[The digitized transcript for ${book.title_original} is currently being indexed. AI-powered summary and cues are available below.]`,
+            translations: [],
+            book_annotations: []
+          }
+        ],
+        metadata: {
+          total_chapters: 1,
+          annotation_count: 0,
+          last_updated: new Date().toISOString(),
+          license: "Public Domain"
+        }
+      };
+      setActiveReaderBook(readerBook);
+    }
+    
+    setView('reader');
+    setCurrentChapterIndex(0);
+  }, [userReaderBooks]);
+
+  const handleCommitBook = (book: ReaderBook) => {
+    // 1. Update the database state
+    setUserReaderBooks(prev => ({ ...prev, [book.id]: book }));
+    
+    // 2. Set active state directly from the object to avoid race condition with state lookup
+    setCurrentBookData(book.library_card!);
+    setActiveReaderBook(book);
+    setView('reader');
+    setCurrentChapterIndex(0);
+  };
+
+  // Automated Translation Effect
+  useEffect(() => {
+    if (showTranslations && currentChapter && !currentChapter.translations.find(t => t.language === targetLanguage) && !isGeneratingTranslation) {
+      const fetchTranslation = async () => {
+        setIsGeneratingTranslation(true);
+        try {
+          const translation = await geminiService.generateTranslation(currentChapter.original_text, targetLanguage);
+          setActiveReaderBook(prev => {
+            const newChapters = [...prev.chapters];
+            newChapters[currentChapterIndex] = {
+              ...newChapters[currentChapterIndex],
+              translations: [...(newChapters[currentChapterIndex].translations || []), translation]
+            };
+            return { ...prev, chapters: newChapters };
+          });
+        } catch (error) {
+          console.error("Translation error", error);
+        } finally {
+          setIsGeneratingTranslation(false);
+        }
+      };
+      fetchTranslation();
+    }
+  }, [showTranslations, targetLanguage, currentChapter, currentChapterIndex, isGeneratingTranslation]);
+
+  // Automated Annotation Effect
+  useEffect(() => {
+    if (currentChapter && (!currentChapter.book_annotations || currentChapter.book_annotations.length === 0) && !isGeneratingAnnotations) {
+      const fetchAnnotations = async () => {
+        setIsGeneratingAnnotations(true);
+        try {
+          const annotations = await geminiService.generateAnnotations(currentChapter.original_text);
+          setActiveReaderBook(prev => {
+            const newChapters = [...prev.chapters];
+            newChapters[currentChapterIndex] = {
+              ...newChapters[currentChapterIndex],
+              book_annotations: annotations
+            };
+            return { ...prev, chapters: newChapters };
+          });
+        } catch (error) {
+          console.error("Annotation error", error);
+        } finally {
+          setIsGeneratingAnnotations(false);
+        }
+      };
+      fetchAnnotations();
+    }
+  }, [currentChapter, currentChapterIndex, isGeneratingAnnotations]);
+
+  const toggleTheme = useCallback(() => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+  }, [theme]);
 
   const handleSaveNotes = useCallback((notes: UserNotes) => {
+    if (!activeReaderBook || !currentChapter) return;
     setNotesStorage(prev => ({
       ...prev,
       [activeReaderBook.id]: {
@@ -115,10 +203,28 @@ const App: React.FC = () => {
         [currentChapter.chapter_number]: notes
       }
     }));
-  }, [activeReaderBook.id, currentChapter.chapter_number]);
+  }, [activeReaderBook, currentChapter]);
+
+  if (view === 'upload') {
+    return (
+      <UploadPage 
+        onBack={() => setView('library')} 
+        onCommit={handleCommitBook}
+        theme={theme}
+      />
+    );
+  }
 
   if (view === 'library') {
-    return <LibraryHome data={LIBRARY_101} onSelectBook={handleSelectBook} theme={theme} onToggleTheme={toggleTheme} />;
+    return (
+      <LibraryHome 
+        data={libraryWithUserBooks} 
+        onSelectBook={handleSelectBook} 
+        theme={theme} 
+        onToggleTheme={toggleTheme}
+        onAcquireVolume={() => setView('upload')}
+      />
+    );
   }
 
   const isDarkMode = theme === 'dark' || theme === 'nord' || theme === 'mocha';
@@ -148,89 +254,37 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-             <button 
-                onClick={toggleTheme}
-                className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors"
-                title="Toggle Theme"
-             >
-                {isDarkMode ? (
-                  <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
-                )}
+             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors">
+                {isDarkMode ? <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg> : <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
              </button>
-             <button 
-                onClick={() => setShowTranslations(!showTranslations)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
-                  showTranslations ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'
-                }`}
-             >
-                Translation
-             </button>
-             <button 
-                onClick={() => setShowNotes(!showNotes)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
-                  showNotes ? 'bg-indigo-600 text-white shadow-sm' : 'bg-black bg-opacity-5'
-                }`}
-             >
-                Notes
-             </button>
-             <button 
-               onClick={() => setIsSettingsOpen(true)}
-               className="p-2 rounded-lg bg-black bg-opacity-5"
-             >
-               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-               </svg>
-             </button>
+             <button onClick={() => setShowTranslations(!showTranslations)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showTranslations ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'}`}>Translation</button>
+             <button onClick={() => setShowNotes(!showNotes)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showNotes ? 'bg-indigo-600 text-white' : 'bg-black bg-opacity-5'}`}>Notes</button>
+             <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg bg-black bg-opacity-5"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg></button>
         </div>
       </header>
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className={`flex flex-1 min-h-0 ${showNotes ? 'h-2/3' : 'h-full'}`}>
           <div className="w-3/4 h-full relative border-r panel-border">
-             <ReaderPanel 
-                chapter={currentChapter} 
-                theme={theme} 
-                settings={readerSettings} 
-                showTranslation={showTranslations}
-                targetLanguage={targetLanguage}
-                isGeneratingTranslation={isGeneratingTranslation}
-             />
+             {currentChapter ? (
+               <ReaderPanel chapter={currentChapter} theme={theme} settings={readerSettings} showTranslation={showTranslations} targetLanguage={targetLanguage} isGeneratingTranslation={isGeneratingTranslation} />
+             ) : (
+               <div className="flex items-center justify-center h-full opacity-30 italic">No content available in this volume.</div>
+             )}
           </div>
           <div className="w-1/4 h-full">
-            <AnnotationPanel 
-               annotations={currentChapter.book_annotations} 
-               theme={theme} 
-               isGenerating={isGeneratingAnnotations}
-            />
+            <AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} />
           </div>
         </div>
-        {showNotes && (
+        {showNotes && currentChapter && (
           <div className="h-1/3 border-t panel-border">
-             <CornellNotesPanel 
-                chapterId={currentChapter.chapter_number}
-                chapterText={currentChapter.original_text}
-                theme={theme}
-                initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]}
-                onSave={handleSaveNotes}
-             />
+             <CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} />
           </div>
         )}
       </main>
 
       {isSettingsOpen && (
-        <SettingsPanel 
-          settings={readerSettings}
-          theme={theme}
-          savedThemes={savedThemes}
-          onSettingsChange={setReaderSettings}
-          onThemeChange={setTheme}
-          onSaveTheme={(name) => {
+        <SettingsPanel settings={readerSettings} theme={theme} savedThemes={savedThemes} onSettingsChange={setReaderSettings} onThemeChange={setTheme} onSaveTheme={(name) => {
             const newTheme = { id: `t-${Date.now()}`, name, settings: {...readerSettings} };
             setSavedThemes(p => [...p, newTheme]);
             setTheme(newTheme.id);

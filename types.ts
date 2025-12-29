@@ -33,7 +33,6 @@ export interface Book {
   author: {
     name_original: string;
     name_latinized: string;
-    // Added name_chinese to the author interface to resolve type errors in constants.ts
     name_chinese?: string;
     lifespan: string;
     civilization: string;
@@ -58,9 +57,9 @@ export interface Book {
     successors: string[];
   };
   thematic_tags: Array<{ tag: string; weight: number }>;
+  is_user_uploaded?: boolean;
 }
 
-// Interface for the reader-specific book structure
 export interface ReaderBook {
   id: string;
   title: string;
@@ -76,6 +75,7 @@ export interface ReaderBook {
     last_updated: string;
     license: string;
   };
+  library_card?: Book; // Link back to the library view data
 }
 
 export type Theme = 'light' | 'dark' | 'sepia' | 'nord' | 'solarized' | 'matcha' | 'mocha' | 'custom' | string;
