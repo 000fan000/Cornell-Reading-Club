@@ -35,6 +35,7 @@ const parseYear = (dateStr: string): number => {
 const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, onToggleTheme }) => {
   const [activePeriodKey, setActivePeriodKey] = useState<string>(Object.keys(data.periods)[0]);
   const [organizationMode, setOrganizationMode] = useState<'region' | 'genre'>('region');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState<string>('');
   const [hoveredBookId, setHoveredBookId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -43,9 +44,44 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
   const isDarkMode = theme === 'dark' || theme === 'nord' || theme === 'mocha';
   const activePeriod = data.periods[activePeriodKey];
 
+  // Aggregate tags for the Filter Cloud
+  const tagStats = useMemo(() => {
+    const stats: Record<string, { weight: number; count: number }> = {};
+    activePeriod.books.forEach(book => {
+      book.thematic_tags.forEach(t => {
+        if (!stats[t.tag]) stats[t.tag] = { weight: 0, count: 0 };
+        stats[t.tag].weight += t.weight;
+        stats[t.tag].count += 1;
+      });
+    });
+    
+    const entries = Object.entries(stats).map(([tag, data]) => ({ 
+      tag, 
+      score: data.weight * data.count,
+    }));
+    
+    if (entries.length === 0) return [];
+    
+    const maxScore = Math.max(...entries.map(e => e.score));
+    return entries.map(e => ({
+      ...e,
+      normalizedScore: maxScore > 0 ? e.score / maxScore : 0
+    })).sort((a, b) => b.score - a.score);
+  }, [activePeriod]);
+
+  // Group books for Region/Genre modes, respecting the tag filter
   const groupedData = useMemo(() => {
     const groups: Record<string, { rows: Book[][]; count: number; books: Book[] }> = {};
-    const sortedBooks = [...activePeriod.books].sort((a, b) => parseYear(a.metadata.estimated_date) - parseYear(b.metadata.estimated_date));
+    
+    // First, filter by active tag if exists
+    let filteredBooks = [...activePeriod.books];
+    if (activeTag) {
+      filteredBooks = filteredBooks.filter(book => 
+        book.thematic_tags.some(t => t.tag === activeTag)
+      );
+    }
+    
+    const sortedBooks = filteredBooks.sort((a, b) => parseYear(a.metadata.estimated_date) - parseYear(b.metadata.estimated_date));
 
     sortedBooks.forEach(book => {
       const category = organizationMode === 'region' 
@@ -64,13 +100,13 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       return [name, { ...g, rows }] as [string, { rows: Book[][]; count: number }];
     });
     return entries.sort((a, b) => a[0].localeCompare(b[0]));
-  }, [activePeriod, organizationMode]);
+  }, [activePeriod, organizationMode, activeTag]);
 
+  // Observer for scroll tracking
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Use a more sensitive observer to handle category switching during scroll
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -80,16 +116,17 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       });
     }, { 
       root: container, 
-      threshold: 0.1, // Trigger earlier
-      rootMargin: '-5% 0% -5% 0%' // Create a focus band in the middle
+      threshold: 0.1,
+      rootMargin: '-10% 0% -10% 0%'
     });
 
     const sections = container.querySelectorAll('.category-section');
     sections.forEach((s) => observer.observe(s));
     
     return () => observer.disconnect();
-  }, [groupedData, activePeriodKey, organizationMode]);
+  }, [groupedData, activePeriodKey, organizationMode, activeTag]);
 
+  // Handle view switching or filtering
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' as any });
@@ -97,20 +134,21 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     if (groupedData.length > 0) {
       setActiveCategoryName(groupedData[0][0]);
     }
-  }, [activePeriodKey, organizationMode]);
+  }, [activePeriodKey, organizationMode, activeTag]);
 
   const scrollToCategory = (category: string) => {
     categoryRefs.current[category]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const navContent = (
-    <>
+    <div className="h-full flex flex-col">
       <div className="mb-8">
         <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mb-2 ${isDarkMode ? 'text-white' : ''}`}>
           {organizationMode === 'region' ? 'Cultural Domain' : 'Genre Index'}
         </h4>
         <div className={`h-[1px] w-full bg-current opacity-[0.05]`}></div>
       </div>
+      
       <nav className="flex-1 flex flex-col gap-5 overflow-y-auto no-scrollbar">
         {groupedData.map(([category, groupData]) => {
           const isActive = activeCategoryName === category;
@@ -136,19 +174,21 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
           );
         })}
       </nav>
-      <div className={`mt-8 pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
+
+      <div className={`mt-auto pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
         <div className="flex items-center justify-between opacity-20">
-           <span className="text-[8px] font-black uppercase tracking-widest">Library Density</span>
-           <span className="text-[10px] font-bold uppercase">{activePeriod.books.length} VOL</span>
+           <span className="text-[8px] font-black uppercase tracking-widest">Showing</span>
+           <span className="text-[10px] font-bold uppercase">{groupedData.reduce((acc, curr) => acc + curr[1].count, 0)} VOL</span>
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className={`h-screen transition-colors duration-500 overflow-hidden flex flex-col font-serif relative ${
+    <div className={`h-screen transition-colors duration-700 overflow-hidden flex flex-col font-serif relative ${
       isDarkMode ? 'bg-[#121212] text-[#e5e5e5]' : 'bg-[#fcfbf9] text-[#2c241e]'
     }`}>
+      {/* Background Era Number Decor */}
       <div className={`absolute inset-0 pointer-events-none select-none overflow-hidden transition-opacity duration-1000 ${
         isDarkMode ? 'opacity-[0.03]' : 'opacity-[0.012]'
       }`}>
@@ -164,10 +204,20 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
           <div className={`flex items-center gap-1 p-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
             isDarkMode ? 'bg-white/5' : 'bg-black/5'
           }`}>
-            <button onClick={() => setOrganizationMode('region')} className={`px-3 py-1 rounded-full transition-all ${organizationMode === 'region' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40'}`}>Region</button>
-            <button onClick={() => setOrganizationMode('genre')} className={`px-3 py-1 rounded-full transition-all ${organizationMode === 'genre' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40'}`}>Genre</button>
+            <button 
+              onClick={() => setOrganizationMode('region')} 
+              className={`px-3 py-1.5 rounded-full transition-all duration-300 ${organizationMode === 'region' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40 hover:opacity-100'}`}
+            >
+              Region
+            </button>
+            <button 
+              onClick={() => setOrganizationMode('genre')} 
+              className={`px-3 py-1.5 rounded-full transition-all duration-300 ${organizationMode === 'genre' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40 hover:opacity-100'}`}
+            >
+              Genre
+            </button>
           </div>
-          <button onClick={onToggleTheme} className={`p-2 rounded-full transition-all duration-300 ${
+          <button onClick={onToggleTheme} className={`p-2.5 rounded-full transition-all duration-300 ${
             isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-400' : 'bg-black/5 hover:bg-black/10 text-indigo-600'
           }`}>
             {isDarkMode ? (
@@ -177,6 +227,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
             )}
           </button>
         </div>
+
         <div className="flex items-center justify-center gap-3 mb-1">
           <div className={`h-px w-6 ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
           <span className={`text-[9px] uppercase tracking-[0.6em] font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>{data.library.concept}</span>
@@ -186,18 +237,65 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         <p className={`text-[11px] opacity-30 italic mt-1 max-w-lg mx-auto ${isDarkMode ? 'text-white' : 'text-[#2c241e]'}`}>"{activePeriod.description}"</p>
       </header>
 
+      {/* Tag Filter Cloud - "Conceptual Horizon" */}
+      <div className={`z-20 px-10 py-4 border-b transition-colors duration-500 overflow-x-auto no-scrollbar flex items-center gap-6 ${
+        isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-[#faf9f6] border-black/5'
+      }`}>
+        <div className="flex-shrink-0 flex items-center gap-3">
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-20">Thematic Filter:</span>
+          {activeTag && (
+            <button 
+              onClick={() => setActiveTag(null)}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all shadow-sm border ${
+                isDarkMode ? 'bg-amber-400 text-black border-transparent' : 'bg-amber-700 text-white border-transparent'
+              }`}
+            >
+              Clear
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-x-8 gap-y-2 whitespace-nowrap overflow-visible py-2">
+          {tagStats.slice(0, 15).map((stat) => (
+            <button
+              key={stat.tag}
+              onClick={() => setActiveTag(activeTag === stat.tag ? null : stat.tag)}
+              className={`transition-all duration-500 font-zh font-black hover:scale-110 relative group ${
+                activeTag === stat.tag 
+                  ? (isDarkMode ? 'text-amber-400 opacity-100 scale-110' : 'text-amber-800 opacity-100 scale-110') 
+                  : 'opacity-30 hover:opacity-100'
+              }`}
+              style={{ fontSize: `${Math.max(12, 28 * stat.normalizedScore)}px` }}
+            >
+              {stat.tag}
+              {activeTag === stat.tag && (
+                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-current"></span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className={`flex-1 flex w-full overflow-hidden relative ${organizationMode === 'genre' ? 'flex-row-reverse' : 'flex-row'}`}>
-        <aside className={`w-56 h-full flex flex-col py-10 px-8 z-20 transition-all duration-500 border-current border-opacity-[0.05] ${
+        {/* Contextual Sidebar Navigation */}
+        <aside className={`w-56 h-full py-10 px-8 z-20 transition-all duration-500 border-current border-opacity-[0.05] ${
           isDarkMode ? 'bg-[#1a1a1a]/80 backdrop-blur-md' : 'bg-white/20 backdrop-blur-md'
         } ${organizationMode === 'region' ? 'border-r' : 'border-l'}`}>
           {navContent}
         </aside>
 
+        {/* Main Content Area */}
         <main className="flex-1 w-full overflow-hidden relative">
           <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto no-scrollbar relative pt-[2vh] pb-[40vh]">
-            {groupedData.map(([category, groupData], groupIndex) => (
+            {groupedData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center opacity-30 px-10 text-center space-y-4">
+                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                 <p className="text-xl font-bold font-serif italic">No volumes found within this conceptual intersection.</p>
+                 <button onClick={() => setActiveTag(null)} className="text-[10px] font-black uppercase tracking-widest border-b border-current">Reset Concept Filter</button>
+              </div>
+            ) : groupedData.map(([category, groupData], groupIndex) => (
               <section 
-                key={`${activePeriodKey}-${category}`}
+                key={`${activePeriodKey}-${category}-${activeTag}`}
                 data-category={category}
                 ref={(el) => { categoryRefs.current[category] = el; }}
                 className={`category-section w-full flex flex-col items-center transition-all duration-700 ease-out py-20 px-[5vw] ${
@@ -263,7 +361,6 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                               </div>
                             </button>
 
-                            {/* Hover Insight Card */}
                             <div className={`absolute top-0 left-[110%] z-[60] w-[340px] p-8 rounded-2xl shadow-[0_30px_90px_-20px_rgba(0,0,0,0.4)] border pointer-events-none transition-all duration-500 transform origin-left ${
                               isHovered ? 'opacity-100 translate-x-4 scale-100' : 'opacity-0 -translate-x-4 scale-95'
                             } ${isDarkMode ? 'bg-[#1a1a1a]/98 border-white/10 text-white backdrop-blur-xl' : 'bg-white/98 border-black/5 text-[#2c241e] backdrop-blur-xl'}`}>
@@ -303,6 +400,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         </main>
       </div>
 
+      {/* Global Period Navigation Tab-bar */}
       <nav className={`h-20 transition-colors duration-500 relative z-40 flex items-center overflow-x-auto no-scrollbar border-t shadow-[0_-5px_15px_rgba(0,0,0,0.02)] ${
         isDarkMode ? 'bg-black/80 border-white/5 backdrop-blur-xl' : 'bg-white/60 border-black/5 backdrop-blur-md'
       }`}>
@@ -313,7 +411,10 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
             return (
               <button
                 key={key}
-                onClick={() => setActivePeriodKey(key)}
+                onClick={() => {
+                  setActivePeriodKey(key);
+                  setActiveTag(null); // Clear tag filter on period change
+                }}
                 className={`flex-shrink-0 w-52 h-full flex flex-col justify-center px-8 border-r transition-all relative group overflow-hidden ${
                   isActive ? (isDarkMode ? 'bg-white/5' : 'bg-amber-50/40') : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-white/40')
                 } ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}

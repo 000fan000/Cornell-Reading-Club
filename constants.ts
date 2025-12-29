@@ -291,12 +291,40 @@ export const LIBRARY_101: LibraryData = {
         },
         {
           "id": "030",
-          "title_original": "De rerum natura",
-          "title_translations": { "en": "On the Nature of Things", "zh": "物性论" },
-          "author": { "name_original": "Titus Lucretius Carus", "name_latinized": "Lucretius", "name_chinese": "卢克莱修", "lifespan": "约公元前99-55年", "civilization": "Roman Republic" },
-          "metadata": { "period": "古典帝国期", "estimated_date": "约公元前1世纪", "original_language": "拉丁语", "genre": ["哲学", "诗歌", "科学"], "length_category": "长", "difficulty_level": 8, "babel_rating": 8.9 },
-          "civilization_context": { "region": "地中海", "cultural_sphere": "罗马", "historical_context": "罗马共和国晚期，内战时期", "contemporary_works": ["西塞罗著作", "凯撒战记"], "predecessors": ["伊壁鸠鲁", "希腊哲学诗"], "successors": ["文艺复兴自然哲学", "启蒙唯物主义"] },
-          "thematic_tags": [{ "tag": "伊壁鸠鲁主义", "weight": 0.9 }, { "tag": "原子论", "weight": 0.8 }, { "tag": "唯物主义", "weight": 0.9 }, { "tag": "科学诗", "weight": 0.8 }, { "tag": "死亡恐惧", "weight": 0.8 }, { "tag": "自然世界", "weight": 0.8 }]
+          "title_original": "Naturalis Historia",
+          "title_translations": { "en": "Natural History", "zh": "自然史" },
+          "author": {
+            "name_original": "Gaius Plinius Secundus",
+            "name_latinized": "Pliny the Elder",
+            "name_chinese": "老普林尼",
+            "lifespan": "23–79年",
+            "civilization": "Roman Empire"
+          },
+          "metadata": {
+            "period": "古典帝国期",
+            "estimated_date": "公元77-79年",
+            "original_language": "拉丁语",
+            "genre": ["百科全书", "自然科学", "博物学"],
+            "length_category": "极长",
+            "difficulty_level": 8,
+            "babel_rating": 8.5
+          },
+          "civilization_context": {
+            "region": "地中海",
+            "cultural_sphere": "罗马",
+            "historical_context": "罗马帝国早期，弗拉维王朝",
+            "contemporary_works": ["塔西佗著作", "小普林尼书信"],
+            "predecessors": ["亚里士多德自然哲学", "希腊化科学"],
+            "successors": ["中世纪百科全书", "文艺复兴自然研究"]
+          },
+          "thematic_tags": [
+            { "tag": "博物学", "weight": 0.9 },
+            { "tag": "百科全书", "weight": 0.9 },
+            { "tag": "自然知识", "weight": 0.8 },
+            { "tag": "经验观察", "weight": 0.7 },
+            { "tag": "罗马科学", "weight": 0.8 },
+            { "tag": "古代技术", "weight": 0.7 }
+          ]
         },
         {
           "id": "031",
