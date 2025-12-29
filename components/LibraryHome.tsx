@@ -251,7 +251,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
                                 <div className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/linen.png')]"></div>
                                 <div className="relative z-10 flex-1 flex flex-col pt-2">
                                   <span className="text-[10px] md:text-[13px] tracking-[0.1em] font-black font-zh opacity-60 mb-4 block border-b border-current/10 pb-2 truncate">
-                                    {book.author.name_original}
+                                    {book.author.name_chinese || book.author.name_original}
                                   </span>
                                   <h3 className="text-base md:text-xl font-black leading-tight mb-2 font-zh text-current/90 line-clamp-2">{book.title_translations.zh}</h3>
                                   <p className="text-[8px] md:text-[10px] font-bold opacity-40 italic font-serif leading-tight line-clamp-2">{book.title_translations.en}</p>
