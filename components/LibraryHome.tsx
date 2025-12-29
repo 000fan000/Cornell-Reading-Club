@@ -21,22 +21,26 @@ const COVER_PALETTES = [
 
 const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, onToggleTheme }) => {
   const [activePeriodKey, setActivePeriodKey] = useState<string>(Object.keys(data.periods)[0]);
-  const [activeRegionName, setActiveRegionName] = useState<string>('');
+  const [organizationMode, setOrganizationMode] = useState<'region' | 'genre'>('region');
+  const [activeCategoryName, setActiveCategoryName] = useState<string>('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const regionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const isDarkMode = theme === 'dark' || theme === 'nord' || theme === 'mocha';
   const activePeriod = data.periods[activePeriodKey];
 
-  const regionalGroups = useMemo(() => {
+  const groupedData = useMemo(() => {
     const groups: Record<string, { rows: Book[][]; count: number }> = {};
     
     activePeriod.books.forEach(book => {
-      const region = book.civilization_context.region || 'Uncharted';
-      if (!groups[region]) groups[region] = { rows: [], count: 0 };
+      const category = organizationMode === 'region' 
+        ? (book.civilization_context.region || 'Uncharted')
+        : (book.metadata.genre[0] || 'Miscellaneous');
+        
+      if (!groups[category]) groups[category] = { rows: [], count: 0 };
       
-      groups[region].count++;
-      const rows = groups[region].rows;
+      groups[category].count++;
+      const rows = groups[category].rows;
       const lastRow = rows[rows.length - 1];
       
       if (!lastRow || lastRow.length === 6) {
@@ -47,11 +51,8 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     });
 
     const sorted = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-    if (sorted.length > 0 && !activeRegionName) {
-      setActiveRegionName(sorted[0][0]);
-    }
     return sorted;
-  }, [activePeriod]);
+  }, [activePeriod, organizationMode]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -65,35 +66,79 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const region = entry.target.getAttribute('data-region');
-          if (region) {
-            setActiveRegionName(region);
+          const category = entry.target.getAttribute('data-category');
+          if (category) {
+            setActiveCategoryName(category);
           }
         }
       });
     }, observerOptions);
 
-    const regions = container.querySelectorAll('.region-section');
-    regions.forEach((r) => observer.observe(r));
+    const sections = container.querySelectorAll('.category-section');
+    sections.forEach((s) => observer.observe(s));
 
     return () => observer.disconnect();
-  }, [regionalGroups, activePeriodKey]);
+  }, [groupedData, activePeriodKey, organizationMode]);
 
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    if (regionalGroups.length > 0) {
-      setActiveRegionName(regionalGroups[0][0]);
+    if (groupedData.length > 0) {
+      setActiveCategoryName(groupedData[0][0]);
     }
-  }, [activePeriodKey]);
+  }, [activePeriodKey, organizationMode]);
 
-  const scrollToRegion = (region: string) => {
-    const element = regionRefs.current[region];
+  const scrollToCategory = (category: string) => {
+    const element = categoryRefs.current[category];
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
+  const navContent = (
+    <>
+      <div className="mb-8">
+        <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mb-2 ${isDarkMode ? 'text-white' : ''}`}>
+          {organizationMode === 'region' ? 'Cultural Domain' : 'Genre Index'}
+        </h4>
+        <div className={`h-[1px] w-full bg-current opacity-[0.05]`}></div>
+      </div>
+      
+      <nav className="flex-1 flex flex-col gap-5 overflow-y-auto no-scrollbar">
+        {groupedData.map(([category, groupData]) => {
+          const isActive = activeCategoryName === category;
+          return (
+            <button
+              key={category}
+              onClick={() => scrollToCategory(category)}
+              className={`group flex items-center justify-between text-left transition-all duration-300 ${
+                isActive ? (organizationMode === 'region' ? 'translate-x-2' : '-translate-x-2') : 'opacity-40 hover:opacity-100'
+              }`}
+            >
+              <span className={`text-[13px] font-black font-zh tracking-wide transition-colors duration-500 ${
+                isActive ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : (isDarkMode ? 'text-white' : 'text-[#2c241e]')
+              }`}>
+                {category}
+              </span>
+              <span className={`text-[10px] font-bold opacity-30 transition-all ${
+                isActive ? (isDarkMode ? 'opacity-100 text-amber-400' : 'opacity-100 text-amber-600') : ''
+              }`}>
+                {groupData.count}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+      
+      <div className={`mt-8 pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
+        <div className="flex items-center justify-between opacity-20">
+           <span className="text-[8px] font-black uppercase tracking-widest">Library Density</span>
+           <span className="text-[10px] font-bold uppercase">{activePeriod.books.length} VOL</span>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div className={`h-screen transition-colors duration-500 overflow-hidden flex flex-col font-serif relative ${
@@ -112,7 +157,25 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
       <header className={`flex flex-col items-center text-center pt-8 pb-4 relative z-30 w-full px-6 transition-colors duration-500 border-b ${
         isDarkMode ? 'bg-black/40 border-white/5 backdrop-blur-md' : 'bg-white/40 border-black/5 backdrop-blur-sm'
       }`}>
-        <div className="absolute right-8 top-10">
+        <div className="absolute right-8 top-10 flex items-center gap-4">
+          {/* Organization Toggle */}
+          <div className={`flex items-center gap-1 p-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+            isDarkMode ? 'bg-white/5' : 'bg-black/5'
+          }`}>
+            <button 
+              onClick={() => setOrganizationMode('region')}
+              className={`px-3 py-1 rounded-full transition-all ${organizationMode === 'region' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40'}`}
+            >
+              Region
+            </button>
+            <button 
+              onClick={() => setOrganizationMode('genre')}
+              className={`px-3 py-1 rounded-full transition-all ${organizationMode === 'genre' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white text-amber-700 shadow-sm') : 'opacity-40'}`}
+            >
+              Genre
+            </button>
+          </div>
+
           <button 
             onClick={onToggleTheme}
             className={`p-2 rounded-full transition-all duration-300 ${
@@ -146,48 +209,12 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
         </p>
       </header>
 
-      <div className="flex-1 flex w-full overflow-hidden relative">
-        {/* Vertical Regional Sidebar */}
-        <aside className={`w-56 h-full flex flex-col py-10 px-8 z-20 transition-colors duration-500 border-r ${
-          isDarkMode ? 'bg-[#1a1a1a]/80 border-white/5 backdrop-blur-md' : 'bg-white/20 border-black/5 backdrop-blur-md'
-        }`}>
-          <div className="mb-8">
-            <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mb-2 ${isDarkMode ? 'text-white' : ''}`}>Registry</h4>
-            <div className={`h-[1px] w-full bg-current opacity-[0.05]`}></div>
-          </div>
-          
-          <nav className="flex-1 flex flex-col gap-5 overflow-y-auto no-scrollbar">
-            {regionalGroups.map(([region, groupData]) => {
-              const isActive = activeRegionName === region;
-              return (
-                <button
-                  key={region}
-                  onClick={() => scrollToRegion(region)}
-                  className={`group flex items-center justify-between text-left transition-all duration-300 ${
-                    isActive ? 'translate-x-2' : 'opacity-40 hover:opacity-100'
-                  }`}
-                >
-                  <span className={`text-[13px] font-black font-zh tracking-wide transition-colors duration-500 ${
-                    isActive ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : (isDarkMode ? 'text-white' : 'text-[#2c241e]')
-                  }`}>
-                    {region}
-                  </span>
-                  <span className={`text-[10px] font-bold opacity-30 transition-all ${
-                    isActive ? (isDarkMode ? 'opacity-100 text-amber-400' : 'opacity-100 text-amber-600') : ''
-                  }`}>
-                    {groupData.count}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-          
-          <div className={`mt-8 pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
-            <div className="flex items-center justify-between opacity-20">
-               <span className="text-[8px] font-black uppercase tracking-widest">Era Context</span>
-               <span className="text-[10px] font-bold uppercase">{activePeriod.era}</span>
-            </div>
-          </div>
+      <div className={`flex-1 flex w-full overflow-hidden relative ${organizationMode === 'genre' ? 'flex-row-reverse' : 'flex-row'}`}>
+        {/* Navigation Sidebar (Flipped based on mode) */}
+        <aside className={`w-56 h-full flex flex-col py-10 px-8 z-20 transition-all duration-500 border-current border-opacity-[0.05] ${
+          isDarkMode ? 'bg-[#1a1a1a]/80 backdrop-blur-md' : 'bg-white/20 backdrop-blur-md'
+        } ${organizationMode === 'region' ? 'border-r' : 'border-l'}`}>
+          {navContent}
         </aside>
 
         {/* Main Vertical Scroll Area */}
@@ -196,30 +223,30 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, on
             ref={scrollContainerRef}
             className="h-full w-full overflow-y-auto snap-y snap-proximity no-scrollbar relative pt-[2vh] pb-[40vh]"
           >
-            {regionalGroups.map(([region, groupData], groupIndex) => (
+            {groupedData.map(([category, groupData], groupIndex) => (
               <section 
-                key={`${activePeriodKey}-${region}`}
-                data-region={region}
-                ref={(el) => { regionRefs.current[region] = el; }}
-                className={`region-section w-full flex flex-col items-center transition-all duration-1000 ease-in-out py-20 px-[5vw] ${
-                  activeRegionName === region 
+                key={`${activePeriodKey}-${category}`}
+                data-category={category}
+                ref={(el) => { categoryRefs.current[category] = el; }}
+                className={`category-section w-full flex flex-col items-center transition-all duration-1000 ease-in-out py-20 px-[5vw] ${
+                  activeCategoryName === category 
                     ? 'opacity-100 blur-0 scale-100' 
                     : 'opacity-10 blur-[3px] scale-98 pointer-events-none'
                 }`}
               >
-                {/* Region Header */}
+                {/* Category Header */}
                 <div className="mb-20 text-center">
                   <span className={`text-[9px] font-black uppercase tracking-[0.6em] mb-3 block ${isDarkMode ? 'text-amber-400/60' : 'text-amber-700/60'}`}>
-                    CULTURAL DOMAIN
+                    {organizationMode === 'region' ? 'CULTURAL DOMAIN' : 'LITERARY GENRE'}
                   </span>
                   <h2 className={`text-4xl font-black font-zh tracking-tight border-b pb-5 px-16 inline-block transition-colors duration-500 ${
                     isDarkMode ? 'text-white border-white/10' : 'text-[#4a423b] border-amber-900/10'
                   }`}>
-                    {region}
+                    {category}
                   </h2>
                 </div>
 
-                {/* Rows within this Region */}
+                {/* Rows within this Category */}
                 <div className="space-y-16 w-full flex flex-col items-center">
                   {groupData.rows.map((rowBooks, rowIndex) => (
                     <div 
