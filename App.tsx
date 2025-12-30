@@ -8,8 +8,16 @@ import SettingsPanel from './components/SettingsPanel';
 import UploadPage from './components/UploadPage';
 import AdminPage from './components/AdminPage';
 import { LIBRARY_101, DEFAULT_BOOK } from './constants';
-import { UserNotes, Theme, Book, ReaderBook, ReaderSettings, SavedTheme, Chapter, LibraryData, LLMConfig } from './types';
+import { UserNotes, Theme, Book, ReaderBook, ReaderSettings, SavedTheme, Chapter, LibraryData, LLMConfig, SavedLLMConfig } from './types';
 import { geminiService } from './services/gemini';
+
+const DEFAULT_LLM_CONFIG: LLMConfig = {
+  provider: 'google',
+  model: 'gemini-3-flash-preview',
+  useSearch: false,
+  useMaps: false,
+  thinkingBudget: 2048,
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<'library' | 'reader' | 'upload' | 'admin'>('library');
@@ -31,12 +39,20 @@ const App: React.FC = () => {
 
   const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => {
     const saved = localStorage.getItem('llm_orchestration_v1');
-    return saved ? JSON.parse(saved) : {
-      model: 'gemini-3-flash-preview',
-      useSearch: false,
-      useMaps: false,
-      thinkingBudget: 2048,
-    };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_LLM_CONFIG, ...parsed };
+      } catch (e) {
+        return DEFAULT_LLM_CONFIG;
+      }
+    }
+    return DEFAULT_LLM_CONFIG;
+  });
+
+  const [savedLLMs, setSavedLLMs] = useState<SavedLLMConfig[]>(() => {
+    const saved = localStorage.getItem('llm_saved_profiles');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [readerSettings, setReaderSettings] = useState<ReaderSettings>(() => {
@@ -128,9 +144,10 @@ const App: React.FC = () => {
     localStorage.setItem('user_saved_themes', JSON.stringify(savedThemes));
     localStorage.setItem('user_reader_books', JSON.stringify(persistedBooks));
     localStorage.setItem('llm_orchestration_v1', JSON.stringify(llmConfig));
+    localStorage.setItem('llm_saved_profiles', JSON.stringify(savedLLMs));
     localStorage.setItem('app_theme', theme);
     localStorage.setItem('app_ui_lang', uiLanguage);
-  }, [notesStorage, readerSettings, savedThemes, persistedBooks, theme, uiLanguage, llmConfig]);
+  }, [notesStorage, readerSettings, savedThemes, persistedBooks, theme, uiLanguage, llmConfig, savedLLMs]);
 
   const handleExportLibrary = () => {
     const data = {
@@ -324,6 +341,12 @@ const App: React.FC = () => {
         onCommitBook={handleCommitBook}
         llmConfig={llmConfig}
         onLlmConfigChange={setLlmConfig}
+        savedLLMs={savedLLMs}
+        onSaveLLM={(name) => {
+          const newProfile = { id: `llm-${Date.now()}`, name, config: { ...llmConfig } };
+          setSavedLLMs(prev => [...prev, newProfile]);
+        }}
+        onDeleteLLM={(id) => setSavedLLMs(prev => prev.filter(p => p.id !== id))}
         theme={theme} 
         uiLanguage={uiLanguage} 
       />

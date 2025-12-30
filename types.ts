@@ -18,10 +18,20 @@ export interface UserNotes {
 }
 
 export interface LLMConfig {
-  model: 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
+  provider: 'google' | 'openai-compatible';
+  model: 'gemini-3-flash-preview' | 'gemini-3-pro-preview' | string;
   useSearch: boolean;
   useMaps: boolean;
   thinkingBudget: number;
+  openaiApiUrl?: string;
+  openaiApiKey?: string;
+  openaiModel?: string;
+}
+
+export interface SavedLLMConfig {
+  id: string;
+  name: string;
+  config: LLMConfig;
 }
 
 export interface Chapter {
