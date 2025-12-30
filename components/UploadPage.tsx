@@ -1,18 +1,19 @@
 
 import React, { useState, useRef } from 'react';
 import { geminiService } from '../services/gemini';
-import { ReaderBook, Theme } from '../types';
+import { ReaderBook, Theme, LLMConfig } from '../types';
 
 interface UploadPageProps {
   onBack: () => void;
   onCommit: (book: ReaderBook) => void;
   theme: Theme;
   uiLanguage: 'en' | 'zh';
+  llmConfig: LLMConfig;
 }
 
 type UploadStep = 'idle' | 'processing' | 'review';
 
-const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme, uiLanguage }) => {
+const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme, uiLanguage, llmConfig }) => {
   const [step, setStep] = useState<UploadStep>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [processedBook, setProcessedBook] = useState<ReaderBook | null>(null);
@@ -43,23 +44,23 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme, uiLang
         else fileReader.readAsText(file);
       });
 
-      addLog(uiLanguage === 'zh' ? `文件读取成功 (${(file.size / 1024).toFixed(1)} KB)。正在传输至 Gemini AI...` : `File read successful (${(file.size / 1024).toFixed(1)} KB). Transmitting to Gemini AI...`);
+      addLog(uiLanguage === 'zh' ? `文件读取成功 (${(file.size / 1024).toFixed(1)} KB)。正在传输至 Gemini AI...` : `File read successful. Transmitting to ${llmConfig.model}...`);
       
       await new Promise(r => setTimeout(r, 800));
 
-      const book = await geminiService.processBookFile(fileData, file.type, file.name);
+      const book = await geminiService.processBookFile(fileData, file.type, file.name, llmConfig);
       
       addLog(uiLanguage === 'zh' ? `数字化完成。元数据已提取。` : `Digitization complete. Metadata extracted.`);
       setProcessedBook(book);
       
       setDebugData({
-        prompt: `System: Digital Librarian\nTask: Structured JSON Extraction\nFile: ${file.name}\nMime: ${file.type}`,
+        prompt: `System: Digital Librarian\nTask: Structured JSON Extraction\nEngine: ${llmConfig.model}`,
         rawResponse: JSON.stringify(book, null, 2)
       });
 
       setStep('review');
     } catch (error) {
-      addLog(uiLanguage === 'zh' ? `错误：${error instanceof Error ? error.message : '转录过程中发生未知错误'}` : `ERROR: ${error instanceof Error ? error.message : 'Unknown failure during transcription'}`);
+      addLog(uiLanguage === 'zh' ? `错误：${error instanceof Error ? error.message : '转录过程中发生未知错误'}` : `ERROR: ${error instanceof Error ? error.message : 'Unknown failure'}`);
       console.error(error);
     }
   };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserNotes, Theme } from '../types';
+import { UserNotes, Theme, LLMConfig } from '../types';
 import { geminiService } from '../services/gemini';
 
 interface CornellNotesPanelProps {
@@ -10,6 +10,7 @@ interface CornellNotesPanelProps {
   theme: Theme;
   onSave: (notes: UserNotes) => void;
   uiLanguage: 'en' | 'zh';
+  llmConfig: LLMConfig;
 }
 
 const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({ 
@@ -18,7 +19,8 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
   chapterText,
   theme,
   onSave,
-  uiLanguage
+  uiLanguage,
+  llmConfig
 }) => {
   const [notes, setNotes] = useState<UserNotes>(initialNotes || { cues: [], notes: '', summary: '' });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -36,17 +38,22 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
   const handleAiGenerate = async () => {
     setIsGenerating(true);
     const lang = uiLanguage === 'zh' ? 'Chinese' : 'English';
-    const cues = await geminiService.generateCues(chapterText, lang);
-    const summary = await geminiService.generateSummary(chapterText, lang);
-    
-    const updated = {
-      ...notes,
-      cues: cues.length > 0 ? cues : notes.cues,
-      summary: summary || notes.summary
-    };
-    setNotes(updated);
-    onSave(updated);
-    setIsGenerating(false);
+    try {
+      const cues = await geminiService.generateCues(chapterText, llmConfig, lang);
+      const summary = await geminiService.generateSummary(chapterText, llmConfig, lang);
+      
+      const updated = {
+        ...notes,
+        cues: cues.length > 0 ? cues : notes.cues,
+        summary: summary || notes.summary
+      };
+      setNotes(updated);
+      onSave(updated);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const isDark = theme === 'dark' || theme === 'nord' || theme === 'mocha';

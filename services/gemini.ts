@@ -1,15 +1,16 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Translation, BookAnnotation, ReaderBook, Book } from "../types";
+import { Translation, BookAnnotation, ReaderBook, Book, LLMConfig } from "../types";
 
 export const geminiService = {
-  async generateSummary(text: string, lang: string = "Chinese"): Promise<string> {
+  async generateSummary(text: string, config: LLMConfig, lang: string = "Chinese"): Promise<string> {
     if (!process.env.API_KEY) return "API Key not configured.";
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: config.model,
         contents: `Summarize the following text in one concise paragraph for a Cornell notes summary section. The summary MUST be in ${lang}:\n\n${text}`,
+        config: config.model === 'gemini-3-pro-preview' ? { thinkingConfig: { thinkingBudget: config.thinkingBudget } } : undefined
       });
       return response.text || "Failed to generate summary.";
     } catch (error) {
@@ -18,12 +19,12 @@ export const geminiService = {
     }
   },
 
-  async generateCues(text: string, lang: string = "Chinese"): Promise<string[]> {
+  async generateCues(text: string, config: LLMConfig, lang: string = "Chinese"): Promise<string[]> {
     if (!process.env.API_KEY) return [];
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: config.model,
         contents: `Analyze this text and provide 3-5 key concepts or questions as 'Cues' for Cornell note-taking. Return them as a simple list. The cues MUST be in ${lang}. \n\n${text}`,
         config: {
           responseMimeType: "application/json",
@@ -35,7 +36,8 @@ export const geminiService = {
                 items: { type: Type.STRING }
               }
             }
-          }
+          },
+          thinkingConfig: config.model === 'gemini-3-pro-preview' ? { thinkingBudget: config.thinkingBudget } : undefined
         }
       });
       const jsonStr = response.text?.trim() || '{"cues":[]}';
@@ -47,12 +49,12 @@ export const geminiService = {
     }
   },
 
-  async generateTranslation(text: string, targetLang: string = "English"): Promise<Translation> {
+  async generateTranslation(text: string, config: LLMConfig, targetLang: string = "English"): Promise<Translation> {
     if (!process.env.API_KEY) return { translator: "Gemini AI", text: "API Key not configured.", language: targetLang };
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: config.model,
         contents: `Translate the following text into ${targetLang}. Maintain the tone and literary quality:\n\n${text}`,
       });
       return {
@@ -66,13 +68,16 @@ export const geminiService = {
     }
   },
 
-  async generateAnnotations(text: string, lang: string = "Chinese"): Promise<BookAnnotation[]> {
+  async generateAnnotations(text: string, config: LLMConfig, lang: string = "Chinese"): Promise<BookAnnotation[]> {
     if (!process.env.API_KEY) return [];
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const tools = [];
+      if (config.useSearch) tools.push({ googleSearch: {} });
+
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: `Provide 3-5 scholarly annotations for the following text. Include philosophical interpretations, linguistic notes, or historical context. The annotations MUST be in ${lang}. \n\n${text}`,
+        model: config.model,
+        contents: `Provide 3-5 scholarly annotations for the following text. Include philosophical interpretations, linguistic notes, or historical context. The annotations MUST be in ${lang}. ${config.useSearch ? 'Use Google Search to verify any historical dates or external references mentioned.' : ''} \n\n${text}`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -91,7 +96,9 @@ export const geminiService = {
                 }
               }
             }
-          }
+          },
+          tools: tools.length > 0 ? tools : undefined,
+          thinkingConfig: config.model === 'gemini-3-pro-preview' ? { thinkingBudget: config.thinkingBudget } : undefined
         }
       });
       const data = JSON.parse(response.text?.trim() || '{"annotations":[]}');
@@ -102,12 +109,12 @@ export const geminiService = {
     }
   },
 
-  async processBookFile(fileData: string, mimeType: string, fileName: string): Promise<ReaderBook> {
+  async processBookFile(fileData: string, mimeType: string, fileName: string, config: LLMConfig): Promise<ReaderBook> {
     if (!process.env.API_KEY) throw new Error("API Key not configured.");
     
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const prompt = `Task: Convert the provided ${mimeType === 'application/pdf' ? 'PDF document' : 'text file'} into a structured digital library asset.
+    const prompt = `Task: Convert the provided ${mimeType === 'application/plain' ? 'text content' : 'file'} into a structured digital library asset.
 
 Strict Requirements:
 1. Extract the Title and Author correctly.
@@ -137,10 +144,11 @@ Output MUST be a single JSON object matching the following schema:
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: config.model,
         contents: { parts: [contentPart, { text: prompt }] },
         config: {
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          thinkingConfig: config.model === 'gemini-3-pro-preview' ? { thinkingBudget: config.thinkingBudget } : undefined
         }
       });
 
@@ -163,7 +171,7 @@ Output MUST be a single JSON object matching the following schema:
         chapters.push({
           chapter_number: 1,
           chapter_title: "Full Text",
-          original_text: "Processing yielded no specific chapter breaks. The content may be non-textual or malformed.",
+          original_text: "Processing yielded no specific chapter breaks.",
           translations: [],
           book_annotations: []
         });

@@ -6,12 +6,13 @@ import AnnotationPanel from './components/AnnotationPanel';
 import CornellNotesPanel from './components/CornellNotesPanel';
 import SettingsPanel from './components/SettingsPanel';
 import UploadPage from './components/UploadPage';
+import AdminPage from './components/AdminPage';
 import { LIBRARY_101, DEFAULT_BOOK } from './constants';
-import { UserNotes, Theme, Book, ReaderBook, ReaderSettings, SavedTheme, Chapter, LibraryData } from './types';
+import { UserNotes, Theme, Book, ReaderBook, ReaderSettings, SavedTheme, Chapter, LibraryData, LLMConfig } from './types';
 import { geminiService } from './services/gemini';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'library' | 'reader' | 'upload'>('library');
+  const [view, setView] = useState<'library' | 'reader' | 'upload' | 'admin'>('library');
   const [currentBookData, setCurrentBookData] = useState<Book | null>(null);
   const [uiLanguage, setUiLanguage] = useState<'en' | 'zh'>(() => (localStorage.getItem('app_ui_lang') as 'en' | 'zh') || 'zh');
   
@@ -26,6 +27,17 @@ const App: React.FC = () => {
   
   const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
   const [isGeneratingAnnotations, setIsGeneratingAnnotations] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => {
+    const saved = localStorage.getItem('llm_orchestration_v1');
+    return saved ? JSON.parse(saved) : {
+      model: 'gemini-3-flash-preview',
+      useSearch: false,
+      useMaps: false,
+      thinkingBudget: 2048,
+    };
+  });
 
   const [readerSettings, setReaderSettings] = useState<ReaderSettings>(() => {
     const saved = localStorage.getItem('reader_settings');
@@ -73,12 +85,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (activeReaderBook && activeReaderBook.id !== "TEMP_ID" && activeReaderBook.id !== DEFAULT_BOOK.id) {
-      setPersistedBooks(prev => ({
-        ...prev,
-        [activeReaderBook.id]: activeReaderBook
-      }));
+      const bookWithNotes = {
+        ...activeReaderBook,
+        persisted_notes: notesStorage[activeReaderBook.id] || {}
+      };
+      if (persistedBooks[activeReaderBook.id]) {
+        setPersistedBooks(prev => ({
+          ...prev,
+          [activeReaderBook.id]: bookWithNotes
+        }));
+      }
     }
-  }, [activeReaderBook]);
+  }, [activeReaderBook, notesStorage]);
 
   const libraryWithUserBooks = useMemo((): LibraryData => {
     const base = { ...LIBRARY_101 };
@@ -91,11 +109,11 @@ const App: React.FC = () => {
       base.periods = {
         ...base.periods,
         user_uploads: {
-          period_name: uiLanguage === 'zh' ? "个人档案" : "Personal Archive",
-          era: uiLanguage === 'zh' ? "我的图书馆" : "My Library",
-          time_range: uiLanguage === 'zh' ? "用户收藏" : "User Collected",
-          description: uiLanguage === 'zh' ? "通过 AI 数字化处理的书卷。" : "Volumes processed via AI digitization.",
-          key_characteristics: uiLanguage === 'zh' ? ["个人兴趣", "AI 处理", "私藏"] : ["Personal Interest", "AI Processed", "Private Collection"],
+          period_name: uiLanguage === 'zh' ? "馆藏手稿" : "Manuscript Archive",
+          era: uiLanguage === 'zh' ? "私人典藏" : "Private Collection",
+          time_range: uiLanguage === 'zh' ? "永久持久化" : "Permanent Persistence",
+          description: uiLanguage === 'zh' ? "这些书卷及其笔记已完整保存在本地 JSON 数据库中。" : "These volumes and their notes are fully persisted in your local JSON database.",
+          key_characteristics: uiLanguage === 'zh' ? ["本地持久化", "包含笔记", "AI 索引"] : ["Locally Persisted", "Notes Included", "AI Indexed"],
           total_books: userUploaded.length,
           books: userUploaded
         }
@@ -109,13 +127,14 @@ const App: React.FC = () => {
     localStorage.setItem('reader_settings', JSON.stringify(readerSettings));
     localStorage.setItem('user_saved_themes', JSON.stringify(savedThemes));
     localStorage.setItem('user_reader_books', JSON.stringify(persistedBooks));
+    localStorage.setItem('llm_orchestration_v1', JSON.stringify(llmConfig));
     localStorage.setItem('app_theme', theme);
     localStorage.setItem('app_ui_lang', uiLanguage);
-  }, [notesStorage, readerSettings, savedThemes, persistedBooks, theme, uiLanguage]);
+  }, [notesStorage, readerSettings, savedThemes, persistedBooks, theme, uiLanguage, llmConfig]);
 
   const handleExportLibrary = () => {
     const data = {
-      version: "1.0",
+      version: "1.2",
       exportDate: new Date().toISOString(),
       books: persistedBooks,
       notes: notesStorage
@@ -124,7 +143,22 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `library-archive-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `library101-complete-archive-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportSingleBook = () => {
+    if (!activeReaderBook) return;
+    const data = {
+      ...activeReaderBook,
+      persisted_notes: notesStorage[activeReaderBook.id] || {}
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeReaderBook.title.replace(/\s+/g, '_')}-volume-archive.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -134,9 +168,9 @@ const App: React.FC = () => {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
-        if (data.books) setPersistedBooks(data.books);
-        if (data.notes) setNotesStorage(data.notes);
-        alert(uiLanguage === 'zh' ? '馆藏档案导入成功！' : 'Library archive imported successfully!');
+        if (data.books) setPersistedBooks(prev => ({ ...prev, ...data.books }));
+        if (data.notes) setNotesStorage(prev => ({ ...prev, ...data.notes }));
+        alert(uiLanguage === 'zh' ? '全馆档案合并成功！' : 'Library archive merged successfully!');
       } catch (err) {
         alert(uiLanguage === 'zh' ? '导入失败：文件格式无效。' : 'Import failed: Invalid file format.');
       }
@@ -144,10 +178,31 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const handleDeleteBook = (id: string) => {
+    setPersistedBooks(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setNotesStorage(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    if (activeReaderBook.id === id) {
+      setActiveReaderBook(DEFAULT_BOOK);
+      setView('library');
+    }
+  };
+
   const handleSelectBook = useCallback((book: Book) => {
     setCurrentBookData(book);
     if (persistedBooks[book.id]) {
-      setActiveReaderBook(persistedBooks[book.id]);
+      const rb = persistedBooks[book.id];
+      setActiveReaderBook(rb);
+      if (rb.persisted_notes) {
+        setNotesStorage(prev => ({ ...prev, [rb.id]: rb.persisted_notes! }));
+      }
     } else {
       const readerBook: ReaderBook = {
         id: book.id,
@@ -160,8 +215,8 @@ const App: React.FC = () => {
         chapters: [
           {
             chapter_number: 1,
-            chapter_title: uiLanguage === 'zh' ? "引言" : "Introduction",
-            original_text: uiLanguage === 'zh' ? `[${book.title_original} 的数字化文本正在索引中...]` : `[The digitized transcript for ${book.title_original} is being indexed...]`,
+            chapter_title: uiLanguage === 'zh' ? "载入中" : "Loading Content",
+            original_text: uiLanguage === 'zh' ? `正在调取 ${book.title_original} 的数字化卷册...` : `Retrieving digitized volume for ${book.title_original}...`,
             translations: [],
             book_annotations: []
           }
@@ -188,6 +243,30 @@ const App: React.FC = () => {
     setCurrentChapterIndex(0);
   };
 
+  const handleGenerateAnnotations = async () => {
+    if (!currentChapter || isGeneratingAnnotations) return;
+    const targetIdx = currentChapterIndex;
+    const targetBookId = activeReaderBook.id;
+    setIsGeneratingAnnotations(true);
+    try {
+      const annotationLang = uiLanguage === 'zh' ? 'Chinese' : 'English';
+      const annotations = await geminiService.generateAnnotations(currentChapter.original_text, llmConfig, annotationLang);
+      setActiveReaderBook(prev => {
+        if (prev.id !== targetBookId) return prev;
+        const newChapters = [...prev.chapters];
+        newChapters[targetIdx] = {
+          ...newChapters[targetIdx],
+          book_annotations: annotations
+        };
+        return { ...prev, chapters: newChapters };
+      });
+    } catch (error) {
+      console.error("Manual Annotation Error:", error);
+    } finally {
+      setIsGeneratingAnnotations(false);
+    }
+  };
+
   useEffect(() => {
     if (showTranslations && currentChapter && !currentChapter.translations.find(t => t.language === targetLanguage) && !isGeneratingTranslation) {
       const targetIdx = currentChapterIndex;
@@ -195,7 +274,7 @@ const App: React.FC = () => {
       const fetchTranslation = async () => {
         setIsGeneratingTranslation(true);
         try {
-          const translation = await geminiService.generateTranslation(currentChapter.original_text, targetLanguage);
+          const translation = await geminiService.generateTranslation(currentChapter.original_text, llmConfig, targetLanguage);
           setActiveReaderBook(prev => {
             if (prev.id !== targetBookId) return prev;
             const newChapters = [...prev.chapters];
@@ -209,31 +288,7 @@ const App: React.FC = () => {
       };
       fetchTranslation();
     }
-  }, [showTranslations, targetLanguage, currentChapter, currentChapterIndex, activeReaderBook.id, isGeneratingTranslation]);
-
-  useEffect(() => {
-    if (currentChapter && (!currentChapter.book_annotations || currentChapter.book_annotations.length === 0) && !isGeneratingAnnotations) {
-      const targetIdx = currentChapterIndex;
-      const targetBookId = activeReaderBook.id;
-      const fetchAnnotations = async () => {
-        setIsGeneratingAnnotations(true);
-        try {
-          const annotationLang = uiLanguage === 'zh' ? 'Chinese' : 'English';
-          const annotations = await geminiService.generateAnnotations(currentChapter.original_text, annotationLang);
-          setActiveReaderBook(prev => {
-            if (prev.id !== targetBookId) return prev;
-            const newChapters = [...prev.chapters];
-            newChapters[targetIdx] = {
-              ...newChapters[targetIdx],
-              book_annotations: annotations
-            };
-            return { ...prev, chapters: newChapters };
-          });
-        } catch (error) { console.error(error); } finally { setIsGeneratingAnnotations(false); }
-      };
-      fetchAnnotations();
-    }
-  }, [currentChapter, currentChapterIndex, activeReaderBook.id, isGeneratingAnnotations, uiLanguage]);
+  }, [showTranslations, targetLanguage, currentChapter, currentChapterIndex, activeReaderBook.id, isGeneratingTranslation, llmConfig]);
 
   const toggleTheme = useCallback(() => setTheme(prev => prev === 'dark' ? 'light' : 'dark'), []);
   const toggleLanguage = useCallback(() => {
@@ -244,6 +299,7 @@ const App: React.FC = () => {
 
   const handleSaveNotes = useCallback((notes: UserNotes) => {
     if (!activeReaderBook || !currentChapter) return;
+    setIsSaving(true);
     setNotesStorage(prev => ({
       ...prev,
       [activeReaderBook.id]: {
@@ -251,10 +307,27 @@ const App: React.FC = () => {
         [currentChapter.chapter_number]: notes
       }
     }));
+    setTimeout(() => setIsSaving(false), 800);
   }, [activeReaderBook, currentChapter]);
 
   if (view === 'upload') {
-    return <UploadPage onBack={() => setView('library')} onCommit={handleCommitBook} theme={theme} uiLanguage={uiLanguage} />;
+    return <UploadPage onBack={() => setView('library')} onCommit={handleCommitBook} theme={theme} uiLanguage={uiLanguage} llmConfig={llmConfig} />;
+  }
+
+  if (view === 'admin') {
+    return (
+      <AdminPage 
+        onBack={() => setView('library')} 
+        persistedBooks={persistedBooks} 
+        notesStorage={notesStorage} 
+        onDeleteBook={handleDeleteBook}
+        onCommitBook={handleCommitBook}
+        llmConfig={llmConfig}
+        onLlmConfigChange={setLlmConfig}
+        theme={theme} 
+        uiLanguage={uiLanguage} 
+      />
+    );
   }
 
   if (view === 'library') {
@@ -267,6 +340,7 @@ const App: React.FC = () => {
         onToggleTheme={toggleTheme}
         onToggleLanguage={toggleLanguage}
         onAcquireVolume={() => setView('upload')}
+        onOpenAdmin={() => setView('admin')}
         onExportArchive={handleExportLibrary}
         onImportArchive={handleImportLibrary}
       />
@@ -288,10 +362,17 @@ const App: React.FC = () => {
           </button>
           <div className="hidden sm:block">
             <h1 className="text-lg font-bold font-serif leading-tight">{activeReaderBook.title}</h1>
-            <p className="text-[10px] uppercase tracking-widest opacity-50">{activeReaderBook.author}</p>
+            <div className="flex items-center gap-2">
+               <p className="text-[10px] uppercase tracking-widest opacity-50">{activeReaderBook.author}</p>
+               {isSaving && <span className="text-[9px] text-emerald-500 font-bold animate-pulse">● {uiLanguage === 'zh' ? '正在保存至持久层...' : 'Persisting to archive...'}</span>}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
+             <button onClick={handleExportSingleBook} title={uiLanguage === 'zh' ? '将本卷及笔记导出为 JSON' : 'Export this Volume + Notes as JSON'} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors opacity-60 hover:opacity-100">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+             </button>
+             <div className="w-px h-6 bg-current opacity-10 mx-1"></div>
              <button onClick={toggleLanguage} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest hover:bg-black/5 transition-colors border border-transparent hover:border-current">
                {uiLanguage === 'zh' ? 'CHS' : 'ENG'}
              </button>
@@ -322,9 +403,9 @@ const App: React.FC = () => {
                 </div>
              </div>
           </div>
-          <div className="w-1/4 h-full"><AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} uiLanguage={uiLanguage} /></div>
+          <div className="w-1/4 h-full"><AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} uiLanguage={uiLanguage} onGenerate={handleGenerateAnnotations} /></div>
         </div>
-        {showNotes && currentChapter && <div className="h-1/3 border-t panel-border"><CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} uiLanguage={uiLanguage} /></div>}
+        {showNotes && currentChapter && <div className="h-1/3 border-t panel-border"><CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} uiLanguage={uiLanguage} llmConfig={llmConfig} /></div>}
       </main>
       {isSettingsOpen && <SettingsPanel settings={readerSettings} theme={theme} savedThemes={savedThemes} uiLanguage={uiLanguage} onSettingsChange={setReaderSettings} onThemeChange={setTheme} onSaveTheme={(name) => { const newTheme = { id: `t-${Date.now()}`, name, settings: {...readerSettings} }; setSavedThemes(p => [...p, newTheme]); setTheme(newTheme.id); }} onDeleteTheme={(id) => setSavedThemes(p => p.filter(t => t.id !== id))} onClose={() => setIsSettingsOpen(false)} />}
       <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>

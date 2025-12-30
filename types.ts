@@ -17,6 +17,13 @@ export interface UserNotes {
   summary: string;
 }
 
+export interface LLMConfig {
+  model: 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
+  useSearch: boolean;
+  useMaps: boolean;
+  thinkingBudget: number;
+}
+
 export interface Chapter {
   chapter_number: number;
   chapter_title: string;
@@ -75,7 +82,8 @@ export interface ReaderBook {
     last_updated: string;
     license: string;
   };
-  library_card?: Book; // Link back to the library view data
+  library_card?: Book; 
+  persisted_notes?: Record<number, UserNotes>;
 }
 
 export type Theme = 'light' | 'dark' | 'sepia' | 'nord' | 'solarized' | 'matcha' | 'mocha' | 'custom' | string;

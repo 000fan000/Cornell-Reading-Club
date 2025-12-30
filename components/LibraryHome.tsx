@@ -10,6 +10,7 @@ interface LibraryHomeProps {
   onToggleTheme: () => void;
   onToggleLanguage: () => void;
   onAcquireVolume?: () => void;
+  onOpenAdmin?: () => void;
   onExportArchive?: () => void;
   onImportArchive?: (file: File) => void;
 }
@@ -24,15 +25,6 @@ const COVER_PALETTES = [
   { bg: 'bg-[#fcfaf2]', text: 'text-[#2c241e]', accent: 'border-[#d4af37]', hex: '#d4af37' },
 ];
 
-const ERA_ICONS: Record<string, React.ReactNode> = {
-  ancient_axial: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v15.5a2.5 2.5 0 0 1-2.5 2.5H6.5a2.5 2.5 0 0 1-2.5-2.5z" /><path d="M8 7h8M8 11h8M8 15h5" /></svg>,
-  classical_empire: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 21h18M3 7h18M6 21V7M10 21V7M14 21V7M18 21V7M3 7l9-5 9 5" /></svg>,
-  medieval_transition: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 11c0-4.418-3.582-8-8-8-3.14 0-5.85 1.808-7.143 4.457L3 11v9a1 1 0 0 0 1 1h5l1-4h4l1 4h5a1 1 0 0 0 1-1v-9z" /><path d="M9 11h6" /></svg>,
-  modern_turn: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /><path d="M12 2v2M12 20v2M20 12h2M2 12h2" /></svg>,
-  contemporary_pluralism: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><circle cx="12" cy="12" r="3" /></svg>,
-  user_uploads: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-};
-
 const parseYear = (dateStr: string): number => {
   if (!dateStr) return 0;
   const cleaned = dateStr.replace('约', '').replace('世纪', '00');
@@ -43,12 +35,11 @@ const parseYear = (dateStr: string): number => {
   return dateStr.includes('前') ? -year : year;
 };
 
-const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, uiLanguage, onToggleTheme, onToggleLanguage, onAcquireVolume, onExportArchive, onImportArchive }) => {
+const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, uiLanguage, onToggleTheme, onToggleLanguage, onAcquireVolume, onOpenAdmin, onExportArchive, onImportArchive }) => {
   const [activePeriodKey, setActivePeriodKey] = useState<string>(Object.keys(data.periods)[0]);
   const [organizationMode, setOrganizationMode] = useState<'region' | 'genre'>('region');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState<string>('');
-  const [hoveredBookId, setHoveredBookId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -105,7 +96,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
   const navContent = (
     <div className="h-full flex flex-col">
       <div className="mb-8">
-        <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mb-2 ${isDarkMode ? 'text-white' : ''}`}>{organizationMode === 'region' ? (uiLanguage === 'zh' ? '文化疆域' : 'Domain') : (uiLanguage === 'zh' ? '类型索引' : 'Genre')}</h4>
+        <h4 className={`text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mb-2 ${isDarkMode ? 'text-white' : ''}`}>{organizationMode === 'region' ? (uiLanguage === 'zh' ? '档案疆域' : 'Archive Domain') : (uiLanguage === 'zh' ? '类型索引' : 'Genre Index')}</h4>
         <div className="h-[1px] w-full bg-current opacity-[0.05]"></div>
       </div>
       <nav className="flex-1 flex flex-col gap-5 overflow-y-auto no-scrollbar">
@@ -125,32 +116,37 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
         <div className="absolute left-8 top-10 flex items-center gap-3">
            <button onClick={onAcquireVolume} className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-sm border ${isDarkMode ? 'bg-amber-400 text-black hover:bg-amber-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
-             {uiLanguage === 'zh' ? '收纳新卷' : 'Acquire Volume'}
+             {uiLanguage === 'zh' ? '收录新卷' : 'Acquire Volume'}
+           </button>
+           <button onClick={onOpenAdmin} title={uiLanguage === 'zh' ? '进入馆员控制台' : 'Librarian Command Center'} className={`p-2 rounded-full border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-amber-400 hover:text-black' : 'bg-black/5 border-black/10 text-indigo-600 hover:bg-indigo-600 hover:text-white'}`}>
+             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
            </button>
            <div className={`h-8 w-px ${isDarkMode ? 'bg-white/10' : 'bg-black/10'}`}></div>
-           <button onClick={onExportArchive} title={uiLanguage === 'zh' ? '导出全馆 JSON 档案' : 'Export Library Archive'} className={`p-2 rounded-full transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white' : 'bg-black/5 hover:bg-black/10 text-black/40 hover:text-black'}`}>
+           <button onClick={onExportArchive} title={uiLanguage === 'zh' ? '备份全馆 JSON 档案' : 'Backup Library Archive'} className={`p-2 rounded-full transition-all flex items-center gap-2 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white' : 'bg-black/5 hover:bg-black/10 text-black/40 hover:text-black'}`}>
              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M16 9l-4 4m0 0l-4-4m4 4V4" /></svg>
+             <span className="text-[9px] font-bold uppercase tracking-widest">{uiLanguage === 'zh' ? '全馆备份' : 'Backup'}</span>
            </button>
-           <button onClick={() => importFileRef.current?.click()} title={uiLanguage === 'zh' ? '导入馆藏档案' : 'Import Library Archive'} className={`p-2 rounded-full transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white' : 'bg-black/5 hover:bg-black/10 text-black/40 hover:text-black'}`}>
+           <button onClick={() => importFileRef.current?.click()} title={uiLanguage === 'zh' ? '导入馆藏档案' : 'Import Library Archive'} className={`p-2 rounded-full transition-all flex items-center gap-2 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white' : 'bg-black/5 hover:bg-black/10 text-black/40 hover:text-black'}`}>
              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+             <span className="text-[9px] font-bold uppercase tracking-widest">{uiLanguage === 'zh' ? '档案导入' : 'Import'}</span>
            </button>
            <input ref={importFileRef} type="file" accept=".json" className="hidden" onChange={(e) => e.target.files?.[0] && onImportArchive?.(e.target.files[0])} />
         </div>
         <div className="absolute right-8 top-10 flex items-center gap-4">
           <button onClick={onToggleLanguage} className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-amber-400' : 'bg-black/5 text-indigo-600'}`}>{uiLanguage === 'zh' ? 'CHS' : 'ENG'}</button>
           <div className={`flex items-center gap-1 p-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5' : 'bg-black/5'}`}>
-            <button onClick={() => setOrganizationMode('region')} className={`px-3 py-1.5 rounded-full transition-all ${organizationMode === 'region' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white shadow-sm text-amber-700') : 'opacity-40'}`}>{uiLanguage === 'zh' ? '疆域' : 'Region'}</button>
-            <button onClick={() => setOrganizationMode('genre')} className={`px-3 py-1.5 rounded-full transition-all ${organizationMode === 'genre' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white shadow-sm text-amber-700') : 'opacity-40'}`}>{uiLanguage === 'zh' ? '类型' : 'Genre'}</button>
+            <button onClick={() => setOrganizationMode('region')} className={`px-3 py-1.5 rounded-full transition-all ${organizationMode === 'region' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white shadow-sm text-amber-700') : 'opacity-40'}`}>{uiLanguage === 'zh' ? '疆域' : 'Domain'}</button>
+            <button onClick={() => setOrganizationMode('genre')} className={`px-3 py-1.5 rounded-full transition-all ${organizationMode === 'genre' ? (isDarkMode ? 'bg-white/10 text-amber-400' : 'bg-white shadow-sm text-amber-700') : 'opacity-40'}`}>{uiLanguage === 'zh' ? '类型' : 'Type'}</button>
           </div>
           <button onClick={onToggleTheme} className={`p-2.5 rounded-full ${isDarkMode ? 'bg-white/5 text-amber-400' : 'bg-black/5 text-indigo-600'}`}>{isDarkMode ? '🌞' : '🌙'}</button>
         </div>
-        <h1 className="text-3xl font-black">{uiLanguage === 'zh' ? data.library.name : 'Library 101'}</h1>
-        <p className="text-[11px] opacity-30 italic mt-1">{activePeriod.description}</p>
+        <h1 className="text-3xl font-black italic tracking-tighter">{uiLanguage === 'zh' ? data.library.name : 'Library 101'}</h1>
+        <p className="text-[11px] opacity-30 italic mt-1 font-sans tracking-wide uppercase">{activePeriod.description}</p>
       </header>
 
       <div className={`z-20 px-10 py-4 border-b flex items-center gap-6 ${isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-[#faf9f6] border-black/5'}`}>
         <div className="flex-shrink-0 flex items-center gap-3">
-          <span className="text-[9px] font-black uppercase tracking-widest opacity-20">{uiLanguage === 'zh' ? '主题过滤' : 'Filter'}:</span>
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-20">{uiLanguage === 'zh' ? '馆藏检索' : 'Registry Search'}:</span>
           {activeTag && <button onClick={() => setActiveTag(null)} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black ${isDarkMode ? 'bg-amber-400 text-black' : 'bg-amber-700 text-white'}`}>{uiLanguage === 'zh' ? '清除' : 'Clear'}</button>}
         </div>
         <div className="flex items-center gap-x-8 whitespace-nowrap overflow-x-auto no-scrollbar py-2">
@@ -162,20 +158,29 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
 
       <div className={`flex-1 flex w-full overflow-hidden ${organizationMode === 'genre' ? 'flex-row-reverse' : 'flex-row'}`}>
         <aside className={`w-56 h-full py-10 px-8 z-20 border-current border-opacity-[0.05] ${isDarkMode ? 'bg-[#1a1a1a]/80 backdrop-blur-md' : 'bg-white/20 backdrop-blur-md'} ${organizationMode === 'region' ? 'border-r' : 'border-l'}`}>{navContent}</aside>
-        <main className="flex-1 overflow-y-auto no-scrollbar ref={scrollContainerRef}">
+        <main className="flex-1 overflow-y-auto no-scrollbar" ref={scrollContainerRef}>
           {groupedData.map(([category, g]) => (
             <section key={category} data-category={category} ref={(el) => { categoryRefs.current[category] = el; }} className="category-section py-20 px-[5vw] flex flex-col items-center">
-              <h2 className={`text-4xl font-black border-b pb-5 px-16 mb-24 ${isDarkMode ? 'text-white border-white/10' : 'text-[#4a423b] border-amber-900/10'}`}>{category}</h2>
+              <h2 className={`text-4xl font-black border-b-2 pb-5 px-16 mb-24 font-serif italic ${isDarkMode ? 'text-white border-white/10' : 'text-[#4a423b] border-amber-900/10'}`}>{category}</h2>
               <div className="space-y-48 w-full flex flex-col items-center">
                 {g.rows.map((rowBooks, rIdx) => (
                   <div key={rIdx} className="flex justify-center items-end gap-16">
                     {rowBooks.map((book) => (
-                      <button key={book.id} onClick={() => onSelectBook(book)} className="group flex flex-col items-center transition-transform hover:-translate-y-8">
-                         <div className={`w-[160px] h-[230px] md:w-[200px] md:h-[290px] ${COVER_PALETTES[parseYear(book.id)%7].bg} shadow-2xl rounded-r border-l-[8px] border-black/10 flex flex-col p-6 text-left`}>
-                            <span className="text-[10px] font-black opacity-60 mb-4">{book.author.name_chinese || book.author.name_original}</span>
-                            <h3 className="text-base md:text-xl font-black leading-tight line-clamp-2">{uiLanguage === 'zh' ? book.title_translations.zh : book.title_translations.en}</h3>
+                      <button key={book.id} onClick={() => onSelectBook(book)} className="group flex flex-col items-center transition-transform hover:-translate-y-8 relative">
+                         <div className={`w-[160px] h-[230px] md:w-[200px] md:h-[290px] ${COVER_PALETTES[parseYear(book.id)%7].bg} shadow-2xl rounded-r border-l-[8px] border-black/10 flex flex-col p-6 text-left relative overflow-hidden`}>
+                            {book.is_user_uploaded && (
+                              <div className="absolute top-0 right-0 p-2 opacity-30">
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                              </div>
+                            )}
+                            <span className="text-[10px] font-black opacity-60 mb-4 font-sans tracking-tighter">{book.author.name_chinese || book.author.name_original}</span>
+                            <h3 className="text-base md:text-xl font-black leading-tight line-clamp-3 font-serif italic">{uiLanguage === 'zh' ? book.title_translations.zh : book.title_translations.en}</h3>
+                            <div className="mt-auto pt-4 border-t border-black/5">
+                              <span className="text-[8px] font-bold opacity-30 uppercase tracking-[0.2em]">{book.metadata.genre[0]}</span>
+                            </div>
                          </div>
-                         <div className="mt-4 text-[10px] font-bold opacity-30">{book.metadata.estimated_date}</div>
+                         <div className="mt-4 text-[10px] font-bold opacity-30 font-sans tracking-widest">{book.metadata.estimated_date}</div>
+                         {book.is_user_uploaded && <div className="absolute -top-4 -right-4 px-2 py-0.5 rounded bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest shadow-lg">{uiLanguage === 'zh' ? '持久化卷' : 'Persisted'}</div>}
                       </button>
                     ))}
                   </div>
@@ -191,9 +196,9 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
           {Object.entries(data.periods).map(([key, p]) => (
             <button key={key} onClick={() => setActivePeriodKey(key)} className={`flex-shrink-0 w-64 h-full flex items-center px-6 transition-all relative ${activePeriodKey === key ? (isDarkMode ? 'bg-white/5' : 'bg-amber-50/40') : 'hover:bg-black/5'}`}>
                <div className="flex flex-col items-start text-left">
-                  <span className={`text-[8px] font-black tracking-widest ${activePeriodKey === key ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : 'opacity-20'}`}>{p.era}</span>
-                  <h4 className={`text-[15px] font-black ${activePeriodKey === key ? 'opacity-100' : 'opacity-40'}`}>{p.period_name}</h4>
-                  <span className="text-[9px] font-bold opacity-30">{p.total_books} {uiLanguage === 'zh' ? '卷' : 'VOL'}</span>
+                  <span className={`text-[8px] font-black tracking-widest uppercase ${activePeriodKey === key ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : 'opacity-20'}`}>{p.era}</span>
+                  <h4 className={`text-[15px] font-black font-serif italic ${activePeriodKey === key ? 'opacity-100' : 'opacity-40'}`}>{p.period_name}</h4>
+                  <span className="text-[9px] font-bold opacity-30 font-sans tracking-widest">{p.total_books} {uiLanguage === 'zh' ? '卷册' : 'VOLUMES'}</span>
                </div>
                {activePeriodKey === key && <div className={`absolute bottom-0 left-0 h-1 w-full ${isDarkMode ? 'bg-amber-400' : 'bg-amber-600'}`} />}
             </button>
