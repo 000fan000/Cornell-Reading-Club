@@ -49,20 +49,22 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
     setIsGenerating(false);
   };
 
-  const isDark = theme === 'dark';
-  const isSepia = theme === 'sepia';
+  const isDark = theme === 'dark' || theme === 'nord' || theme === 'mocha';
+  const isSepia = theme === 'sepia' || theme === 'solarized';
 
   const baseStyles = isDark ? 'bg-[#1e1e1e] text-gray-200 border-[#333]' : 
                     isSepia ? 'bg-[#fcf8e8] text-[#5b4636] border-[#e0d6b6]' : 
                     'bg-white text-gray-800 border-slate-200';
 
-  const inputStyles = `w-full bg-transparent resize-none focus:outline-none transition-all duration-200 p-4 h-full`;
+  const inputStyles = `w-full bg-transparent resize-none focus:outline-none transition-all duration-200 p-4 h-full ${
+    isDark ? 'text-gray-200 placeholder-gray-600' : 'text-gray-800 placeholder-gray-400'
+  }`;
 
   return (
     <div className={`h-full flex flex-col border-t-2 panel-border ${isDark ? 'bg-[#1a1a1a]' : 'bg-slate-50'}`}>
       <div className="flex items-center justify-between px-6 py-2 border-b panel-border bg-opacity-50">
         <div className="flex items-center gap-4">
-           <h3 className="text-xs font-bold uppercase tracking-widest opacity-60">
+           <h3 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-400' : 'opacity-60'}`}>
              {uiLanguage === 'zh' ? '康奈尔笔记' : 'Cornell Notes'}
            </h3>
            <span className="text-[10px] opacity-40">
@@ -74,7 +76,7 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
           disabled={isGenerating}
           className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all ${
             isGenerating 
-            ? 'opacity-50 cursor-not-allowed bg-gray-200' 
+            ? 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-800' 
             : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
           }`}
         >
@@ -89,7 +91,7 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className={`w-[30%] border-r panel-border flex flex-col ${baseStyles}`}>
-          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">
+          <div className={`px-4 pt-3 text-[10px] font-bold uppercase ${isDark ? 'text-indigo-400 opacity-60' : 'opacity-40'}`}>
             {uiLanguage === 'zh' ? '线索与问题' : 'Cues & Questions'}
           </div>
           <div className="flex-1 overflow-y-auto p-2">
@@ -103,7 +105,7 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
         </div>
 
         <div className={`w-[50%] border-r panel-border flex flex-col ${baseStyles}`}>
-          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">
+          <div className={`px-4 pt-3 text-[10px] font-bold uppercase ${isDark ? 'text-indigo-400 opacity-60' : 'opacity-40'}`}>
             {uiLanguage === 'zh' ? '笔记与心得' : 'Notes & Reflections'}
           </div>
           <div className="flex-1 overflow-y-auto p-2">
@@ -117,7 +119,7 @@ const CornellNotesPanel: React.FC<CornellNotesPanelProps> = ({
         </div>
 
         <div className={`w-[20%] flex flex-col ${baseStyles}`}>
-          <div className="px-4 pt-3 text-[10px] font-bold uppercase opacity-40">
+          <div className={`px-4 pt-3 text-[10px] font-bold uppercase ${isDark ? 'text-indigo-400 opacity-60' : 'opacity-40'}`}>
             {uiLanguage === 'zh' ? '总结' : 'Summary'}
           </div>
           <div className="flex-1 overflow-y-auto p-2">

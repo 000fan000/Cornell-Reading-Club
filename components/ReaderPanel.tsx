@@ -25,9 +25,12 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
   const isSepia = theme === 'sepia' || theme === 'solarized';
   const isCustom = theme === 'custom' || (!isDark && !isSepia && theme !== 'light');
 
+  // Logic to prevent black text on black bg:
+  // If we are in dark mode but the settings haven't been customized yet,
+  // ensure we use the theme's default legible text color.
   const containerStyle: React.CSSProperties = {
     backgroundColor: isCustom ? settings.backgroundColor : undefined,
-    color: isCustom ? settings.textColor : undefined,
+    color: isCustom ? settings.textColor : (isDark ? '#e5e7eb' : undefined),
   };
 
   const textStyle: React.CSSProperties = {
