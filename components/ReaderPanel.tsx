@@ -45,7 +45,8 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
     marginBottom: `${settings.paragraphSpacing}em`,
   };
 
-  const activeTranslation = chapter.translations.find(t => t.language === targetLanguage);
+  // Optional chaining added here to prevent "undefined is not an object"
+  const activeTranslation = chapter.translations?.find(t => t.language === targetLanguage);
 
   return (
     <div 
@@ -72,7 +73,7 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
             className="leading-relaxed tracking-wide whitespace-pre-wrap"
             style={textStyle}
           >
-            {chapter.original_text.split('\n\n').map((para, i) => (
+            {(chapter.original_text || "").split('\n\n').map((para, i) => (
               <p key={i} style={paragraphStyle}>{para}</p>
             ))}
           </div>

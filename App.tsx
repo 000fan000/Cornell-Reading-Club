@@ -214,13 +214,26 @@ const App: React.FC = () => {
 
   const handleSelectBook = useCallback((book: Book) => {
     setCurrentBookData(book);
-    if (persistedBooks[book.id]) {
-      const rb = persistedBooks[book.id];
-      setActiveReaderBook(rb);
-      if (rb.persisted_notes) {
-        setNotesStorage(prev => ({ ...prev, [rb.id]: rb.persisted_notes! }));
+    
+    // 1. Direct ID check
+    let targetReaderBook = persistedBooks[book.id];
+
+    // 2. Semantic mapping fallback: If the core ID isn't found, check if we have a user-uploaded volume with a matching title.
+    if (!targetReaderBook) {
+      targetReaderBook = Object.values(persistedBooks).find(rb => 
+        rb.library_card?.title_original === book.title_original || 
+        rb.title === book.title_translations.zh || 
+        rb.title === book.title_translations.en
+      ) || null;
+    }
+
+    if (targetReaderBook) {
+      setActiveReaderBook(targetReaderBook);
+      if (targetReaderBook.persisted_notes) {
+        setNotesStorage(prev => ({ ...prev, [targetReaderBook.id]: targetReaderBook.persisted_notes! }));
       }
     } else {
+      // 3. Falling back to placeholder if no content is found
       const readerBook: ReaderBook = {
         id: book.id,
         title: uiLanguage === 'en' ? (book.title_translations.en || book.title_original) : (book.title_translations.zh || book.title_original),

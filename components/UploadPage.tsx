@@ -44,7 +44,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, onCommit, theme, uiLang
         else fileReader.readAsText(file);
       });
 
-      addLog(uiLanguage === 'zh' ? `文件读取成功 (${(file.size / 1024).toFixed(1)} KB)。正在传输至 Gemini AI...` : `File read successful. Transmitting to ${llmConfig.model}...`);
+      addLog(uiLanguage === 'zh' ? `文件读取成功 (${(file.size / 1024).toFixed(1)} KB)。正在传输至 ${llmConfig.model}...` : `File read successful. Transmitting to ${llmConfig.model}...`);
       
       await new Promise(r => setTimeout(r, 800));
 

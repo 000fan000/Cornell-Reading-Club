@@ -49,28 +49,36 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
 
   const tagStats = useMemo(() => {
     const stats: Record<string, { weight: number; count: number }> = {};
+    if (!activePeriod?.books) return [];
     activePeriod.books.forEach(book => {
-      book.thematic_tags.forEach(t => {
+      book.thematic_tags?.forEach(t => {
         if (!stats[t.tag]) stats[t.tag] = { weight: 0, count: 0 };
-        stats[t.tag].weight += t.weight;
+        stats[t.tag].weight += (t.weight || 1);
         stats[t.tag].count += 1;
       });
     });
     const entries = Object.entries(stats).map(([tag, data]) => ({ tag, score: data.weight * data.count }));
-    const maxScore = Math.max(...entries.map(e => e.score));
+    const maxScore = Math.max(...entries.map(e => e.score), 1);
     return entries.map(e => ({ ...e, normalizedScore: maxScore > 0 ? e.score / maxScore : 0 })).sort((a, b) => b.score - a.score);
   }, [activePeriod]);
 
   const groupedData = useMemo(() => {
     const groups: Record<string, { count: number; books: Book[] }> = {};
+    if (!activePeriod?.books) return [];
+    
     let filteredBooks = [...activePeriod.books];
-    if (activeTag) filteredBooks = filteredBooks.filter(book => book.thematic_tags.some(t => t.tag === activeTag));
-    filteredBooks.sort((a, b) => parseYear(a.metadata.estimated_date) - parseYear(b.metadata.estimated_date)).forEach(book => {
-      const category = organizationMode === 'region' ? (book.civilization_context.region || 'Uncharted') : (book.metadata.genre[0] || 'Misc');
+    if (activeTag) filteredBooks = filteredBooks.filter(book => book.thematic_tags?.some(t => t.tag === activeTag));
+    
+    filteredBooks.sort((a, b) => parseYear(a.metadata?.estimated_date || "") - parseYear(b.metadata?.estimated_date || "")).forEach(book => {
+      const category = organizationMode === 'region' 
+        ? (book.civilization_context?.region || 'Uncharted') 
+        : (book.metadata?.genre?.[0] || 'Misc');
+        
       if (!groups[category]) groups[category] = { count: 0, books: [] };
       groups[category].books.push(book);
       groups[category].count++;
     });
+    
     return Object.entries(groups).map(([name, g]) => {
       const rows: Book[][] = [];
       for (let i = 0; i < g.books.length; i += 4) rows.push(g.books.slice(i, i + 4));
@@ -141,7 +149,7 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
           <button onClick={onToggleTheme} className={`p-2.5 rounded-full ${isDarkMode ? 'bg-white/5 text-amber-400' : 'bg-black/5 text-indigo-600'}`}>{isDarkMode ? '🌞' : '🌙'}</button>
         </div>
         <h1 className="text-3xl font-black italic tracking-tighter">{uiLanguage === 'zh' ? data.library.name : 'Library 101'}</h1>
-        <p className="text-[11px] opacity-30 italic mt-1 font-sans tracking-wide uppercase">{activePeriod.description}</p>
+        <p className="text-[11px] opacity-30 italic mt-1 font-sans tracking-wide uppercase">{activePeriod?.description || ""}</p>
       </header>
 
       <div className={`z-20 px-10 py-4 border-b flex items-center gap-6 ${isDarkMode ? 'bg-[#151515] border-white/5' : 'bg-[#faf9f6] border-black/5'}`}>
@@ -173,13 +181,13 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                               </div>
                             )}
-                            <span className="text-[10px] font-black opacity-60 mb-4 font-sans tracking-tighter">{book.author.name_chinese || book.author.name_original}</span>
-                            <h3 className="text-base md:text-xl font-black leading-tight line-clamp-3 font-serif italic">{uiLanguage === 'zh' ? book.title_translations.zh : book.title_translations.en}</h3>
+                            <span className="text-[10px] font-black opacity-60 mb-4 font-sans tracking-tighter">{(book.author?.name_chinese || book.author?.name_original) || "Unknown"}</span>
+                            <h3 className="text-base md:text-xl font-black leading-tight line-clamp-3 font-serif italic">{uiLanguage === 'zh' ? book.title_translations?.zh : book.title_translations?.en}</h3>
                             <div className="mt-auto pt-4 border-t border-black/5">
-                              <span className="text-[8px] font-bold opacity-30 uppercase tracking-[0.2em]">{book.metadata.genre[0]}</span>
+                              <span className="text-[8px] font-bold opacity-30 uppercase tracking-[0.2em]">{book.metadata?.genre?.[0] || "Manuscript"}</span>
                             </div>
                          </div>
-                         <div className="mt-4 text-[10px] font-bold opacity-30 font-sans tracking-widest">{book.metadata.estimated_date}</div>
+                         <div className="mt-4 text-[10px] font-bold opacity-30 font-sans tracking-widest">{book.metadata?.estimated_date || "Unknown"}</div>
                          {book.is_user_uploaded && <div className="absolute -top-4 -right-4 px-2 py-0.5 rounded bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest shadow-lg">{uiLanguage === 'zh' ? '持久化卷' : 'Persisted'}</div>}
                       </button>
                     ))}
