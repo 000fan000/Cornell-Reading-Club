@@ -25,9 +25,6 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
   const isSepia = theme === 'sepia' || theme === 'solarized';
   const isCustom = theme === 'custom' || (!isDark && !isSepia && theme !== 'light');
 
-  // Logic to prevent black text on black bg:
-  // If we are in dark mode but the settings haven't been customized yet,
-  // ensure we use the theme's default legible text color.
   const containerStyle: React.CSSProperties = {
     backgroundColor: isCustom ? settings.backgroundColor : undefined,
     color: isCustom ? settings.textColor : (isDark ? '#e5e7eb' : undefined),
@@ -45,8 +42,10 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
     marginBottom: `${settings.paragraphSpacing}em`,
   };
 
-  // Optional chaining added here to prevent "undefined is not an object"
   const activeTranslation = chapter.translations?.find(t => t.language === targetLanguage);
+  
+  // Safe chapter number handling
+  const chNum = chapter.chapter_number ?? '?';
 
   return (
     <div 
@@ -63,7 +62,7 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
       >
         <header className="border-b pb-6 border-current opacity-20 text-center md:text-left">
           <h2 className="text-sm uppercase tracking-widest opacity-60 font-medium">
-            {uiLanguage === 'zh' ? `第 ${chapter.chapter_number} 章` : `Chapter ${chapter.chapter_number}`}
+            {uiLanguage === 'zh' ? `第 ${chNum} 章` : `Chapter ${chNum}`}
           </h2>
           <h1 className="text-3xl font-bold mt-2 font-serif" style={{ fontFamily: settings.fontFamily }}>{chapter.chapter_title}</h1>
         </header>
@@ -73,7 +72,7 @@ const ReaderPanel: React.FC<ReaderPanelProps> = ({
             className="leading-relaxed tracking-wide whitespace-pre-wrap"
             style={textStyle}
           >
-            {(chapter.original_text || "").split('\n\n').map((para, i) => (
+            {(chapter.original_text || "No content found.").split('\n\n').map((para, i) => (
               <p key={i} style={paragraphStyle}>{para}</p>
             ))}
           </div>

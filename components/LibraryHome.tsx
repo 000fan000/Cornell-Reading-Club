@@ -201,7 +201,8 @@ const LibraryHome: React.FC<LibraryHomeProps> = ({ data, onSelectBook, theme, ui
 
       <nav className={`h-28 flex items-center overflow-x-auto no-scrollbar border-t ${isDarkMode ? 'bg-black/80 border-white/5 backdrop-blur-2xl' : 'bg-white/80 border-black/5 backdrop-blur-2xl'}`}>
         <div className="flex h-full min-w-full px-6 gap-2">
-          {Object.entries(data.periods).map(([key, p]) => (
+          {/* Fix: Cast Object.entries(data.periods) to [string, LibraryPeriod][] to ensure correct property access */}
+          {(Object.entries(data.periods) as [string, LibraryPeriod][]).map(([key, p]) => (
             <button key={key} onClick={() => setActivePeriodKey(key)} className={`flex-shrink-0 w-64 h-full flex items-center px-6 transition-all relative ${activePeriodKey === key ? (isDarkMode ? 'bg-white/5' : 'bg-amber-50/40') : 'hover:bg-black/5'}`}>
                <div className="flex flex-col items-start text-left">
                   <span className={`text-[8px] font-black tracking-widest uppercase ${activePeriodKey === key ? (isDarkMode ? 'text-amber-400' : 'text-amber-700') : 'opacity-20'}`}>{p.era}</span>

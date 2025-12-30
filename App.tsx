@@ -116,7 +116,8 @@ const App: React.FC = () => {
 
   const libraryWithUserBooks = useMemo((): LibraryData => {
     const base = { ...LIBRARY_101 };
-    const userUploaded = Object.values(persistedBooks)
+    // Fix: Cast Object.values to ReaderBook[] to resolve unknown type errors for properties like library_card
+    const userUploaded = (Object.values(persistedBooks) as ReaderBook[])
       .filter(rb => rb.library_card?.is_user_uploaded)
       .map(rb => rb.library_card)
       .filter(Boolean) as Book[];
@@ -220,7 +221,8 @@ const App: React.FC = () => {
 
     // 2. Semantic mapping fallback: If the core ID isn't found, check if we have a user-uploaded volume with a matching title.
     if (!targetReaderBook) {
-      targetReaderBook = Object.values(persistedBooks).find(rb => 
+      // Fix: Cast Object.values to ReaderBook[] to resolve unknown type errors for title and library_card
+      targetReaderBook = (Object.values(persistedBooks) as ReaderBook[]).find(rb => 
         rb.library_card?.title_original === book.title_original || 
         rb.title === book.title_translations.zh || 
         rb.title === book.title_translations.en

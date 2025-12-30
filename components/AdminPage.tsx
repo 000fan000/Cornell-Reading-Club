@@ -42,7 +42,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
   const [newProfileName, setNewProfileName] = useState('');
 
   const isDark = theme === 'dark' || theme === 'nord' || theme === 'mocha';
-  const books = Object.values(persistedBooks);
+  const books = Object.values(persistedBooks) as ReaderBook[];
 
   const handleManualDigitize = async () => {
     if (!manualText.trim() || isProcessing) return;
@@ -75,7 +75,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
   const handleSaveProfile = () => {
     if (!newProfileName.trim()) return;
-    // Fix: Changed newProfileProfileName to newProfileName
     onSaveLLM(newProfileName);
     setNewProfileName('');
     alert(uiLanguage === 'zh' ? '引擎配置已保存' : 'Engine profile saved');
@@ -129,7 +128,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
              <div className="grid grid-cols-4 gap-6 mb-8">
               {[
                 { label: uiLanguage === 'zh' ? '总卷数' : 'Total Volumes', value: books.length },
-                { label: uiLanguage === 'zh' ? '笔记记录数' : 'Note Records', value: Object.values(notesStorage).reduce((acc, curr) => acc + Object.keys(curr).length, 0) },
+                { label: uiLanguage === 'zh' ? '笔记记录数' : 'Note Records', value: (Object.values(notesStorage) as Record<number, UserNotes>[]).reduce((acc: number, curr) => acc + Object.keys(curr).length, 0) },
                 { label: uiLanguage === 'zh' ? '当前供应商' : 'Active Provider', value: activeProvider },
                 { label: uiLanguage === 'zh' ? '状态' : 'Status', value: 'Synced' },
               ].map((stat, i) => (
@@ -287,7 +286,8 @@ const AdminPage: React.FC<AdminPageProps> = ({
                                 <span className="text-sm font-black italic">Gemini 3 Flash</span>
                                 <div className={`w-2 h-2 rounded-full ${llmConfig.model === 'gemini-3-flash-preview' ? 'bg-emerald-500 animate-pulse' : 'bg-current opacity-10'}`}></div>
                              </div>
-                             <p className="text-[10px] leading-relaxed opacity-60">{uiLanguage === 'zh' ? '轻量且迅速。最适合基础转录、简单摘要和高速处理。' : 'Lightweight and exceptionally fast. Ideal for basic transcription and indexing.'}</p>
+                             <p className="text-[10px] leading-relaxed opacity-60 font-mono tracking-tighter">ID: gemini-3-flash-preview</p>
+                             <p className="text-[10px] leading-relaxed opacity-60 mt-1">{uiLanguage === 'zh' ? '轻量且迅速。最适合基础转录、简单摘要和高速处理。' : 'Lightweight and exceptionally fast. Ideal for basic transcription and indexing.'}</p>
                           </button>
                           
                           <button 
@@ -298,7 +298,20 @@ const AdminPage: React.FC<AdminPageProps> = ({
                                 <span className="text-sm font-black italic">Gemini 3 Pro</span>
                                 <div className={`w-2 h-2 rounded-full ${llmConfig.model === 'gemini-3-pro-preview' ? 'bg-emerald-500 animate-pulse' : 'bg-current opacity-10'}`}></div>
                              </div>
-                             <p className="text-[10px] leading-relaxed opacity-60">{uiLanguage === 'zh' ? '深度推理与学术能力。支持思考预算、复杂分析。' : 'Deep reasoning and scholarly excellence. Supports thinking budgets.'}</p>
+                             <p className="text-[10px] leading-relaxed opacity-60 font-mono tracking-tighter">ID: gemini-3-pro-preview</p>
+                             <p className="text-[10px] leading-relaxed opacity-60 mt-1">{uiLanguage === 'zh' ? '深度推理与学术能力。支持思考预算、复杂分析。' : 'Deep reasoning and scholarly excellence. Supports thinking budgets.'}</p>
+                          </button>
+
+                          <button 
+                            onClick={() => updateLlm('model', 'gemini-flash-lite-latest')}
+                            className={`p-6 rounded-3xl border text-left transition-all ${llmConfig.model === 'gemini-flash-lite-latest' ? 'border-emerald-500 bg-emerald-500/5 ring-2 ring-emerald-500/20' : 'border-current border-opacity-10 opacity-60 hover:opacity-100'}`}
+                          >
+                             <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-black italic">Gemini Flash Lite</span>
+                                <div className={`w-2 h-2 rounded-full ${llmConfig.model === 'gemini-flash-lite-latest' ? 'bg-emerald-500 animate-pulse' : 'bg-current opacity-10'}`}></div>
+                             </div>
+                             <p className="text-[10px] leading-relaxed opacity-60 font-mono tracking-tighter">ID: gemini-flash-lite-latest</p>
+                             <p className="text-[10px] leading-relaxed opacity-60 mt-1">{uiLanguage === 'zh' ? '极致效率。适合超大规模文档的快速初步索引。' : 'Extreme efficiency. Ideal for ultra-fast preliminary indexing.'}</p>
                           </button>
                        </div>
                     </div>
@@ -424,7 +437,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                    </section>
                 )}
 
-                {/* Original Features Section */}
+                {/* Cognitive Features Section */}
                 {llmConfig.provider === 'google' && (
                   <section className="grid grid-cols-2 gap-10">
                     <div className="space-y-6">
@@ -443,7 +456,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                         <h3 className="text-xs font-black uppercase tracking-[0.4em] opacity-40">{uiLanguage === 'zh' ? '思考预算' : 'Reasoning Budget'}</h3>
                         <div className={`p-6 rounded-3xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-white border-black/5'}`}>
                             <div className="flex justify-between items-end mb-4"><span className="text-[10px] font-black font-mono">{llmConfig.thinkingBudget} TOKENS</span></div>
-                            <input type="range" min="0" max="32768" step="1024" value={llmConfig.thinkingBudget} disabled={llmConfig.model !== 'gemini-3-pro-preview'} onChange={(e) => updateLlm('thinkingBudget', parseInt(e.target.value))} className="w-full accent-emerald-500" />
+                            <input type="range" min="0" max="32768" step="1024" value={llmConfig.thinkingBudget} disabled={!llmConfig.model.includes('pro') && !llmConfig.model.includes('gemini-3')} onChange={(e) => updateLlm('thinkingBudget', parseInt(e.target.value))} className="w-full accent-emerald-500" />
                             <p className="text-[9px] opacity-30 mt-4 italic">{uiLanguage === 'zh' ? '高预算可以增加深度但会增加延迟。' : 'Higher budgets increase depth but add latency.'}</p>
                         </div>
                     </div>
