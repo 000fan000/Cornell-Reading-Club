@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('app_theme') as Theme) || 'light');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [showTranslations, setShowTranslations] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState(() => uiLanguage === 'zh' ? 'Chinese' : 'English');
@@ -116,7 +117,6 @@ const App: React.FC = () => {
 
   const libraryWithUserBooks = useMemo((): LibraryData => {
     const base = { ...LIBRARY_101 };
-    // Fix: Cast Object.values to ReaderBook[] to resolve unknown type errors for properties like library_card
     const userUploaded = (Object.values(persistedBooks) as ReaderBook[])
       .filter(rb => rb.library_card?.is_user_uploaded)
       .map(rb => rb.library_card)
@@ -215,13 +215,8 @@ const App: React.FC = () => {
 
   const handleSelectBook = useCallback((book: Book) => {
     setCurrentBookData(book);
-    
-    // 1. Direct ID check
     let targetReaderBook = persistedBooks[book.id];
-
-    // 2. Semantic mapping fallback: If the core ID isn't found, check if we have a user-uploaded volume with a matching title.
     if (!targetReaderBook) {
-      // Fix: Cast Object.values to ReaderBook[] to resolve unknown type errors for title and library_card
       targetReaderBook = (Object.values(persistedBooks) as ReaderBook[]).find(rb => 
         rb.library_card?.title_original === book.title_original || 
         rb.title === book.title_translations.zh || 
@@ -235,7 +230,6 @@ const App: React.FC = () => {
         setNotesStorage(prev => ({ ...prev, [targetReaderBook.id]: targetReaderBook.persisted_notes! }));
       }
     } else {
-      // 3. Falling back to placeholder if no content is found
       const readerBook: ReaderBook = {
         id: book.id,
         title: uiLanguage === 'en' ? (book.title_translations.en || book.title_original) : (book.title_translations.zh || book.title_original),
@@ -342,6 +336,18 @@ const App: React.FC = () => {
     setTimeout(() => setIsSaving(false), 800);
   }, [activeReaderBook, currentChapter]);
 
+  const handleNextChapter = useCallback(() => {
+    if (currentChapterIndex < activeReaderBook.chapters.length - 1) {
+      setCurrentChapterIndex(prev => prev + 1);
+    }
+  }, [currentChapterIndex, activeReaderBook.chapters.length]);
+
+  const handlePrevChapter = useCallback(() => {
+    if (currentChapterIndex > 0) {
+      setCurrentChapterIndex(prev => prev - 1);
+    }
+  }, [currentChapterIndex]);
+
   if (view === 'upload') {
     return <UploadPage onBack={() => setView('library')} onCommit={handleCommitBook} theme={theme} uiLanguage={uiLanguage} llmConfig={llmConfig} />;
   }
@@ -390,61 +396,183 @@ const App: React.FC = () => {
       isDarkMode ? 'bg-[#121212] text-gray-200' : 
       theme === 'sepia' || theme === 'solarized' ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-slate-50 text-gray-900'
     }`}>
-      <header className={`flex items-center justify-between px-6 py-3 border-b panel-border z-20 ${
+      <header className={`flex items-center justify-between px-6 py-3 border-b panel-border z-30 ${
         isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'
       } shadow-sm`}>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <button onClick={() => setView('library')} className="flex items-center gap-2 p-2 hover:bg-black hover:bg-opacity-5 rounded-lg transition-colors text-indigo-600 font-bold text-xs uppercase tracking-widest">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             {uiLanguage === 'zh' ? '图书馆' : 'Library'}
           </button>
-          <div className="hidden sm:block">
-            <h1 className="text-lg font-bold font-serif leading-tight">{activeReaderBook.title}</h1>
+          
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border ${
+              isSidebarOpen ? 'bg-indigo-600 text-white border-transparent' : 'bg-black/5 border-transparent opacity-70 hover:opacity-100'
+            }`}
+            title={uiLanguage === 'zh' ? '目录' : 'Index'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
+            <span className="text-[10px] font-black uppercase tracking-widest">{uiLanguage === 'zh' ? '卷册目录' : 'Index'}</span>
+          </button>
+
+          <div className="hidden lg:block ml-2 border-l pl-4 panel-border">
+            <h1 className="text-sm font-bold font-serif leading-tight">{activeReaderBook.title}</h1>
             <div className="flex items-center gap-2">
-               <p className="text-[10px] uppercase tracking-widest opacity-50">{activeReaderBook.author}</p>
-               {isSaving && <span className="text-[9px] text-emerald-500 font-bold animate-pulse">● {uiLanguage === 'zh' ? '正在保存至持久层...' : 'Persisting to archive...'}</span>}
+               <p className="text-[9px] uppercase tracking-widest opacity-50">{activeReaderBook.author}</p>
+               {isSaving && <span className="text-[9px] text-emerald-500 font-bold animate-pulse">● {uiLanguage === 'zh' ? '同步中' : 'Syncing'}</span>}
             </div>
           </div>
         </div>
+        
         <div className="flex items-center gap-2">
-             <button onClick={handleExportSingleBook} title={uiLanguage === 'zh' ? '将本卷及笔记导出为 JSON' : 'Export this Volume + Notes as JSON'} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors opacity-60 hover:opacity-100">
+             <button onClick={handleExportSingleBook} title={uiLanguage === 'zh' ? '导出' : 'Export'} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors opacity-60">
                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
              </button>
-             <div className="w-px h-6 bg-current opacity-10 mx-1"></div>
-             <button onClick={toggleLanguage} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest hover:bg-black/5 transition-colors border border-transparent hover:border-current">
+             <button onClick={toggleLanguage} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest hover:bg-black/5 transition-colors">
                {uiLanguage === 'zh' ? 'CHS' : 'ENG'}
              </button>
-             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors">
-                {isDarkMode ? <svg className="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg> : <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>}
+             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5">
+                {isDarkMode ? '🌞' : '🌙'}
              </button>
+             <div className="w-px h-6 bg-current opacity-10 mx-1"></div>
              <button onClick={() => setShowTranslations(!showTranslations)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showTranslations ? 'bg-indigo-600 text-white shadow-lg' : 'bg-black bg-opacity-5 dark:bg-white dark:bg-opacity-10'}`}>
-               {uiLanguage === 'zh' ? '翻译' : 'Translation'}
+               {uiLanguage === 'zh' ? '译' : 'TR'}
              </button>
              <button onClick={() => setShowNotes(!showNotes)} className={`px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider ${showNotes ? 'bg-indigo-600 text-white shadow-lg' : 'bg-black bg-opacity-5 dark:bg-white dark:bg-opacity-10'}`}>
-               {uiLanguage === 'zh' ? '笔记' : 'Notes'}
+               {uiLanguage === 'zh' ? '笔记' : 'NOTE'}
              </button>
              <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg bg-black bg-opacity-5 dark:bg-white dark:bg-opacity-10"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg></button>
         </div>
       </header>
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className={`flex flex-1 min-h-0 ${showNotes ? 'h-2/3' : 'h-full'}`}>
-          <div className="w-3/4 h-full relative border-r panel-border flex flex-col">
-             <div className="flex-1 min-h-0 overflow-hidden relative">
-               {currentChapter ? <ReaderPanel chapter={currentChapter} theme={theme} settings={readerSettings} showTranslation={showTranslations} targetLanguage={targetLanguage} isGeneratingTranslation={isGeneratingTranslation} uiLanguage={uiLanguage} /> : <div className="flex items-center justify-center h-full opacity-30 italic text-lg">{uiLanguage === 'zh' ? '此书卷暂无内容。' : 'No content available.'}</div>}
-             </div>
-             <div className={`h-14 flex-shrink-0 border-t panel-border flex items-center px-6 overflow-x-auto no-scrollbar gap-4 ${isDarkMode ? 'bg-[#151515]' : 'bg-slate-100/50'}`}>
-                <span className="text-[9px] font-black uppercase tracking-widest opacity-30 whitespace-nowrap">{uiLanguage === 'zh' ? '手稿章节' : 'Manuscript Sections'}</span>
-                <div className="flex items-center gap-2 pr-4">
-                  {activeReaderBook.chapters.map((ch, idx) => (
-                    <button key={ch.chapter_number} onClick={() => setCurrentChapterIndex(idx)} className={`h-8 px-4 rounded-full text-[10px] font-bold transition-all whitespace-nowrap border ${currentChapterIndex === idx ? (isDarkMode ? 'bg-amber-400 text-black border-transparent shadow-lg scale-105' : 'bg-indigo-600 text-white border-transparent shadow-md scale-105') : (isDarkMode ? 'bg-white/5 border-white/10 text-white/40 hover:text-white/80' : 'bg-white border-black/5 text-black/40 hover:text-black/80')}`}>{ch.chapter_number}. {ch.chapter_title}</button>
-                  ))}
-                </div>
-             </div>
+
+      <main className="flex-1 flex min-h-0 overflow-hidden relative">
+        {/* Left Sidebar Table of Contents */}
+        <aside className={`transition-all duration-500 ease-in-out border-r panel-border flex flex-col ${
+          isSidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 pointer-events-none'
+        } ${isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'}`}>
+          <div className="p-6 border-b panel-border bg-current bg-opacity-[0.02]">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-2">
+              {uiLanguage === 'zh' ? '手稿架构' : 'Manuscript Map'}
+            </h3>
+            <div className="flex items-center justify-between">
+               <span className="text-xs font-serif italic opacity-60">
+                 {activeReaderBook.chapters.length} {uiLanguage === 'zh' ? '个章节' : 'Sections'}
+               </span>
+               <span className="text-[9px] font-mono opacity-30">Ver: {activeReaderBook.version}</span>
+            </div>
           </div>
-          <div className="w-1/4 h-full"><AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} uiLanguage={uiLanguage} onGenerate={handleGenerateAnnotations} /></div>
+          <div className="flex-1 overflow-y-auto no-scrollbar py-2">
+            {activeReaderBook.chapters.map((ch, idx) => (
+              <button 
+                key={ch.chapter_number} 
+                onClick={() => setCurrentChapterIndex(idx)} 
+                className={`w-full text-left px-6 py-5 transition-all border-l-4 flex flex-col gap-1 relative group ${
+                  currentChapterIndex === idx 
+                  ? (isDarkMode ? 'bg-indigo-500/5 border-amber-400' : 'bg-indigo-50 border-indigo-600') 
+                  : 'border-transparent opacity-60 hover:opacity-100 hover:bg-black/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                   <span className={`text-[10px] font-mono font-black ${currentChapterIndex === idx ? 'text-indigo-600 dark:text-amber-400' : 'opacity-30'}`}>
+                     {ch.chapter_number.toString().padStart(2, '0')}
+                   </span>
+                   <span className={`text-sm font-bold font-serif leading-tight ${currentChapterIndex === idx ? (isDarkMode ? 'text-white' : 'text-gray-900') : ''}`}>
+                     {ch.chapter_title}
+                   </span>
+                </div>
+                {currentChapterIndex === idx && (
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-current opacity-20"></div>
+                   </div>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="p-4 border-t panel-border text-center">
+             <p className="text-[9px] font-black uppercase tracking-widest opacity-20">Library101 Scriptorium</p>
+          </div>
+        </aside>
+
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className={`flex flex-1 min-h-0 ${showNotes ? 'h-2/3' : 'h-full'}`}>
+            <div className="flex-1 h-full relative flex flex-col min-w-0">
+               <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
+                 <div className="flex-1 overflow-hidden relative">
+                    {currentChapter ? (
+                        <ReaderPanel 
+                          chapter={currentChapter} 
+                          theme={theme} 
+                          settings={readerSettings} 
+                          showTranslation={showTranslations} 
+                          targetLanguage={targetLanguage} 
+                          isGeneratingTranslation={isGeneratingTranslation} 
+                          uiLanguage={uiLanguage} 
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full opacity-30 italic text-lg">
+                          {uiLanguage === 'zh' ? '此书卷暂无内容。' : 'No content available.'}
+                        </div>
+                      )}
+                 </div>
+
+                  {/* Improved Navigation Dock at bottom of Reader area */}
+                  <div className={`flex items-center justify-between px-8 py-4 border-t panel-border ${isDarkMode ? 'bg-black/20' : 'bg-white/40'}`}>
+                    <button 
+                      onClick={handlePrevChapter}
+                      disabled={currentChapterIndex === 0}
+                      className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${
+                        currentChapterIndex === 0 
+                        ? 'opacity-10 cursor-not-allowed' 
+                        : 'hover:bg-black/5 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                      <div className="text-left hidden sm:block">
+                         <div className="text-[9px] font-black uppercase tracking-widest opacity-40">{uiLanguage === 'zh' ? '上一章' : 'PREVIOUS'}</div>
+                         {currentChapterIndex > 0 && <div className="text-xs font-bold truncate max-w-[150px]">{activeReaderBook.chapters[currentChapterIndex-1].chapter_title}</div>}
+                      </div>
+                    </button>
+
+                    <div className="flex items-center gap-4">
+                       <div className="h-1 w-24 rounded-full bg-current opacity-10 relative overflow-hidden">
+                          <div 
+                            className="absolute left-0 top-0 h-full bg-indigo-600 transition-all duration-500" 
+                            style={{ width: `${((currentChapterIndex + 1) / activeReaderBook.chapters.length) * 100}%` }}
+                          ></div>
+                       </div>
+                       <span className="text-[10px] font-mono font-bold opacity-40">
+                         {currentChapterIndex + 1} / {activeReaderBook.chapters.length}
+                       </span>
+                    </div>
+                    
+                    <button 
+                      onClick={handleNextChapter}
+                      disabled={currentChapterIndex === activeReaderBook.chapters.length - 1}
+                      className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${
+                        currentChapterIndex === activeReaderBook.chapters.length - 1 
+                        ? 'opacity-10 cursor-not-allowed' 
+                        : 'hover:bg-black/5 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <div className="text-right hidden sm:block">
+                         <div className="text-[9px] font-black uppercase tracking-widest opacity-40">{uiLanguage === 'zh' ? '下一章' : 'NEXT'}</div>
+                         {currentChapterIndex < activeReaderBook.chapters.length - 1 && <div className="text-xs font-bold truncate max-w-[150px]">{activeReaderBook.chapters[currentChapterIndex+1].chapter_title}</div>}
+                      </div>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+               </div>
+            </div>
+            <div className="w-1/4 h-full hidden xl:block border-l panel-border">
+              <AnnotationPanel annotations={currentChapter?.book_annotations || []} theme={theme} isGenerating={isGeneratingAnnotations} uiLanguage={uiLanguage} onGenerate={handleGenerateAnnotations} />
+            </div>
+          </div>
+          {showNotes && currentChapter && <div className="h-1/3 border-t panel-border"><CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} uiLanguage={uiLanguage} llmConfig={llmConfig} /></div>}
         </div>
-        {showNotes && currentChapter && <div className="h-1/3 border-t panel-border"><CornellNotesPanel chapterId={currentChapter.chapter_number} chapterText={currentChapter.original_text} theme={theme} initialNotes={(notesStorage[activeReaderBook.id] || {})[currentChapter.chapter_number]} onSave={handleSaveNotes} uiLanguage={uiLanguage} llmConfig={llmConfig} /></div>}
       </main>
+
       {isSettingsOpen && <SettingsPanel settings={readerSettings} theme={theme} savedThemes={savedThemes} uiLanguage={uiLanguage} onSettingsChange={setReaderSettings} onThemeChange={setTheme} onSaveTheme={(name) => { const newTheme = { id: `t-${Date.now()}`, name, settings: {...readerSettings} }; setSavedThemes(p => [...p, newTheme]); setTheme(newTheme.id); }} onDeleteTheme={(id) => setSavedThemes(p => p.filter(t => t.id !== id))} onClose={() => setIsSettingsOpen(false)} />}
       <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
