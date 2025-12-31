@@ -393,7 +393,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex flex-col h-screen transition-colors duration-300 ${
-      isDarkMode ? 'bg-[#121212] text-gray-200' : 
+      isDarkMode ? 'bg-[#121212] text-gray-100' : 
       theme === 'sepia' || theme === 'solarized' ? 'bg-[#f4ecd8] text-[#5b4636]' : 'bg-slate-50 text-gray-900'
     }`}>
       <header className={`flex items-center justify-between px-6 py-3 border-b panel-border z-30 ${
@@ -408,7 +408,9 @@ const App: React.FC = () => {
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border ${
-              isSidebarOpen ? 'bg-indigo-600 text-white border-transparent' : 'bg-black/5 border-transparent opacity-70 hover:opacity-100'
+              isSidebarOpen 
+                ? 'bg-indigo-600 text-white border-transparent' 
+                : (isDarkMode ? 'bg-white/10 text-white border-transparent' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100')
             }`}
             title={uiLanguage === 'zh' ? '目录' : 'Index'}
           >
@@ -450,16 +452,16 @@ const App: React.FC = () => {
         {/* Left Sidebar Table of Contents */}
         <aside className={`transition-all duration-500 ease-in-out border-r panel-border flex flex-col ${
           isSidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 pointer-events-none'
-        } ${isDarkMode ? 'bg-[#1a1a1a]' : 'bg-white'}`}>
-          <div className="p-6 border-b panel-border bg-current bg-opacity-[0.02]">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-2">
+        } ${isDarkMode ? 'bg-[#181818] text-gray-100' : 'bg-white text-gray-900'}`}>
+          <div className={`p-6 border-b panel-border ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'}`}>
+            <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`}>
               {uiLanguage === 'zh' ? '手稿架构' : 'Manuscript Map'}
             </h3>
             <div className="flex items-center justify-between">
-               <span className="text-xs font-serif italic opacity-60">
+               <span className={`text-xs font-serif italic ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                  {activeReaderBook.chapters.length} {uiLanguage === 'zh' ? '个章节' : 'Sections'}
                </span>
-               <span className="text-[9px] font-mono opacity-30">Ver: {activeReaderBook.version}</span>
+               <span className={`text-[9px] font-mono ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Ver: {activeReaderBook.version}</span>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto no-scrollbar py-2">
@@ -469,21 +471,21 @@ const App: React.FC = () => {
                 onClick={() => setCurrentChapterIndex(idx)} 
                 className={`w-full text-left px-6 py-5 transition-all border-l-4 flex flex-col gap-1 relative group ${
                   currentChapterIndex === idx 
-                  ? (isDarkMode ? 'bg-indigo-500/5 border-amber-400' : 'bg-indigo-50 border-indigo-600') 
-                  : 'border-transparent opacity-60 hover:opacity-100 hover:bg-black/5'
+                  ? (isDarkMode ? 'bg-indigo-600/10 border-amber-400' : 'bg-indigo-50 border-indigo-600') 
+                  : `border-transparent ${isDarkMode ? 'text-gray-300 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-black/5'}`
                 }`}
               >
                 <div className="flex items-center gap-3">
-                   <span className={`text-[10px] font-mono font-black ${currentChapterIndex === idx ? 'text-indigo-600 dark:text-amber-400' : 'opacity-30'}`}>
+                   <span className={`text-[10px] font-mono font-black ${currentChapterIndex === idx ? 'text-indigo-600 dark:text-amber-400' : (isDarkMode ? 'text-gray-600' : 'opacity-40')}`}>
                      {ch.chapter_number.toString().padStart(2, '0')}
                    </span>
-                   <span className={`text-sm font-bold font-serif leading-tight ${currentChapterIndex === idx ? (isDarkMode ? 'text-white' : 'text-gray-900') : ''}`}>
+                   <span className={`text-sm font-bold font-serif leading-tight ${currentChapterIndex === idx ? (isDarkMode ? 'text-white' : 'text-gray-900') : (isDarkMode ? 'text-gray-300' : '')}`}>
                      {ch.chapter_title}
                    </span>
                 </div>
                 {currentChapterIndex === idx && (
                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-current opacity-20"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40"></div>
                    </div>
                 )}
               </button>
@@ -518,20 +520,20 @@ const App: React.FC = () => {
                  </div>
 
                   {/* Improved Navigation Dock at bottom of Reader area */}
-                  <div className={`flex items-center justify-between px-8 py-4 border-t panel-border ${isDarkMode ? 'bg-black/20' : 'bg-white/40'}`}>
+                  <div className={`flex items-center justify-between px-8 py-4 border-t panel-border ${isDarkMode ? 'bg-black/40 text-white' : 'bg-gray-50/80 text-gray-900'}`}>
                     <button 
                       onClick={handlePrevChapter}
                       disabled={currentChapterIndex === 0}
                       className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${
                         currentChapterIndex === 0 
                         ? 'opacity-10 cursor-not-allowed' 
-                        : 'hover:bg-black/5 opacity-70 hover:opacity-100'
+                        : (isDarkMode ? 'hover:bg-white/10 text-white opacity-90 hover:opacity-100' : 'hover:bg-black/5 text-gray-700 opacity-80 hover:opacity-100')
                       }`}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                       <div className="text-left hidden sm:block">
-                         <div className="text-[9px] font-black uppercase tracking-widest opacity-40">{uiLanguage === 'zh' ? '上一章' : 'PREVIOUS'}</div>
-                         {currentChapterIndex > 0 && <div className="text-xs font-bold truncate max-w-[150px]">{activeReaderBook.chapters[currentChapterIndex-1].chapter_title}</div>}
+                         <div className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`}>{uiLanguage === 'zh' ? '上一章' : 'PREVIOUS'}</div>
+                         {currentChapterIndex > 0 && <div className={`text-xs font-bold truncate max-w-[150px] ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>{activeReaderBook.chapters[currentChapterIndex-1].chapter_title}</div>}
                       </div>
                     </button>
 
@@ -542,7 +544,7 @@ const App: React.FC = () => {
                             style={{ width: `${((currentChapterIndex + 1) / activeReaderBook.chapters.length) * 100}%` }}
                           ></div>
                        </div>
-                       <span className="text-[10px] font-mono font-bold opacity-40">
+                       <span className={`text-[10px] font-mono font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                          {currentChapterIndex + 1} / {activeReaderBook.chapters.length}
                        </span>
                     </div>
@@ -553,12 +555,12 @@ const App: React.FC = () => {
                       className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${
                         currentChapterIndex === activeReaderBook.chapters.length - 1 
                         ? 'opacity-10 cursor-not-allowed' 
-                        : 'hover:bg-black/5 opacity-70 hover:opacity-100'
+                        : (isDarkMode ? 'hover:bg-white/10 text-white opacity-90 hover:opacity-100' : 'hover:bg-black/5 text-gray-700 opacity-80 hover:opacity-100')
                       }`}
                     >
                       <div className="text-right hidden sm:block">
-                         <div className="text-[9px] font-black uppercase tracking-widest opacity-40">{uiLanguage === 'zh' ? '下一章' : 'NEXT'}</div>
-                         {currentChapterIndex < activeReaderBook.chapters.length - 1 && <div className="text-xs font-bold truncate max-w-[150px]">{activeReaderBook.chapters[currentChapterIndex+1].chapter_title}</div>}
+                         <div className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`}>{uiLanguage === 'zh' ? '下一章' : 'NEXT'}</div>
+                         {currentChapterIndex < activeReaderBook.chapters.length - 1 && <div className={`text-xs font-bold truncate max-w-[150px] ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>{activeReaderBook.chapters[currentChapterIndex+1].chapter_title}</div>}
                       </div>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                     </button>
