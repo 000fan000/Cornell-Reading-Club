@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import LibraryHome from './components/LibraryHome';
 import ReaderPanel from './components/ReaderPanel';
 import AnnotationPanel from './components/AnnotationPanel';
@@ -37,6 +37,8 @@ const App: React.FC = () => {
   const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
   const [isGeneratingAnnotations, setIsGeneratingAnnotations] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const importSingleBookRef = useRef<HTMLInputElement>(null);
 
   const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => {
     const saved = localStorage.getItem('llm_orchestration_v1');
@@ -179,6 +181,30 @@ const App: React.FC = () => {
     link.download = `${activeReaderBook.title.replace(/\s+/g, '_')}-volume-archive.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleImportSingleBook = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (data.id && data.chapters) {
+          if (data.persisted_notes) {
+            setNotesStorage(prev => ({ ...prev, [data.id]: data.persisted_notes }));
+          }
+          setPersistedBooks(prev => ({ ...prev, [data.id]: data }));
+          setActiveReaderBook(data);
+          if (data.library_card) setCurrentBookData(data.library_card);
+          setCurrentChapterIndex(0);
+          alert(uiLanguage === 'zh' ? '书卷导入成功！' : 'Volume imported successfully!');
+        } else {
+          throw new Error("Missing ID or Chapters");
+        }
+      } catch (err) {
+        alert(uiLanguage === 'zh' ? '导入失败：文件格式无效或非书卷档案。' : 'Import failed: Invalid file format or not a volume archive.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleImportLibrary = (file: File) => {
@@ -428,6 +454,10 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
+             <button onClick={() => importSingleBookRef.current?.click()} title={uiLanguage === 'zh' ? '导入书卷' : 'Import Volume'} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors opacity-60">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+             </button>
+             <input ref={importSingleBookRef} type="file" accept=".json" className="hidden" onChange={(e) => e.target.files?.[0] && handleImportSingleBook(e.target.files[0])} />
              <button onClick={handleExportSingleBook} title={uiLanguage === 'zh' ? '导出' : 'Export'} className="p-2 rounded-lg hover:bg-black hover:bg-opacity-5 transition-colors opacity-60">
                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
              </button>
